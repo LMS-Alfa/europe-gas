@@ -1,4 +1,0 @@
-id,name,serial_number,category,price,stock
-TEST001,Test Part 1,SN12345,Testing,9.99,10
-TEST002,Test Part 2,SN67890,Testing,19.99,5
-TEST003,Test Part 3,SN54321,Testing,29.99,15 
