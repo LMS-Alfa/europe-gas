@@ -1,7 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect, useContext, useMemo } from 'react';
 import styled from 'styled-components';
 import { motion } from 'framer-motion';
+import { FiFilter, FiSearch, FiX } from 'react-icons/fi';
 import Layout from '../../components/Layout';
+import AuthContext from '../../contexts/AuthContext';
+import { getUserParts, getUserBonus } from '../../utils/api';
 
 const Card = styled(motion.div)`
   background-color: ${props => props.theme.colors.surface};
@@ -34,26 +37,12 @@ const Select = styled.select`
   }
 `;
 
-const Button = styled.button`
-  padding: ${props => `${props.theme.spacing.md} ${props.theme.spacing.lg}`};
-  background-color: ${props => props.theme.colors.primary};
-  color: white;
-  border: none;
-  border-radius: ${props => props.theme.borderRadius.md};
-  font-size: ${props => props.theme.typography.fontSize.md};
-  cursor: pointer;
-  transition: background-color ${props => props.theme.transition.fast};
-  
-  &:hover {
-    background-color: ${props => props.theme.colors.secondary};
-  }
-`;
-
 const Input = styled.input`
   padding: ${props => props.theme.spacing.md};
   border: 1px solid ${props => props.theme.colors.border};
   border-radius: ${props => props.theme.borderRadius.md};
   font-size: ${props => props.theme.typography.fontSize.md};
+  flex: 2;
   
   &:focus {
     outline: none;
@@ -88,32 +77,16 @@ const TableBody = styled.tbody`
   }
 `;
 
-const StatusBadge = styled.span`
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: ${props => props.theme.typography.fontSize.sm};
-  
-  ${props => props.status === 'Valid' && `
-    background-color: #e8f5e9;
-    color: #2e7d32;
-  `}
-  
-  ${props => props.status === 'Invalid' && `
-    background-color: #ffebee;
-    color: #c62828;
-  `}
-  
-  ${props => props.status === 'Duplicate' && `
-    background-color: #fff8e1;
-    color: #f57f17;
-  `}
-`;
-
 const Pagination = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-top: ${props => props.theme.spacing.lg};
+  
+  @media (max-width: ${props => props.theme.breakpoints.sm}) {
+    flex-direction: column;
+    gap: ${props => props.theme.spacing.md};
+  }
 `;
 
 const PaginationInfo = styled.div`
@@ -123,6 +96,7 @@ const PaginationInfo = styled.div`
 const PaginationButtons = styled.div`
   display: flex;
   gap: ${props => props.theme.spacing.sm};
+  flex-wrap: wrap;
 `;
 
 const PaginationButton = styled.button`
@@ -181,213 +155,345 @@ const Section = styled.section`
   }
 `;
 
-// Mock data for demonstration
-const mockHistoryData = [
-  { id: 1, partId: 'ABC123', date: '2025-01-15', time: '09:15:23', status: 'Valid', bonus: '$1', quarter: 'Q1 2025' },
-  { id: 2, partId: 'DEF456', date: '2025-01-14', time: '11:23:45', status: 'Valid', bonus: '$1', quarter: 'Q1 2025' },
-  { id: 3, partId: 'XYZ789', date: '2025-01-14', time: '14:05:12', status: 'Valid', bonus: '$1', quarter: 'Q1 2025' },
-  { id: 4, partId: 'MNO123', date: '2025-01-12', time: '10:33:21', status: 'Invalid', bonus: '$0', quarter: 'Q1 2025' },
-  { id: 5, partId: 'ABC123', date: '2025-01-11', time: '16:45:33', status: 'Duplicate', bonus: '$0', quarter: 'Q1 2025' },
-  { id: 6, partId: 'PQR321', date: '2024-12-20', time: '08:22:11', status: 'Valid', bonus: '$1', quarter: 'Q4 2024' },
-  { id: 7, partId: 'LMN654', date: '2024-12-15', time: '13:12:42', status: 'Valid', bonus: '$1', quarter: 'Q4 2024' },
-  { id: 8, partId: 'GHI789', date: '2024-12-10', time: '09:55:18', status: 'Valid', bonus: '$1', quarter: 'Q4 2024' },
-  { id: 9, partId: 'JKL321', date: '2024-12-05', time: '15:33:29', status: 'Invalid', bonus: '$0', quarter: 'Q4 2024' },
-  { id: 10, partId: 'STU987', date: '2024-12-01', time: '11:11:11', status: 'Valid', bonus: '$1', quarter: 'Q4 2024' },
-  { id: 11, partId: 'VWX654', date: '2024-11-25', time: '14:22:33', status: 'Valid', bonus: '$1', quarter: 'Q4 2024' },
-  { id: 12, partId: 'YZA321', date: '2024-11-20', time: '16:44:55', status: 'Valid', bonus: '$1', quarter: 'Q4 2024' },
-];
+const LoadingOverlay = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: ${props => props.theme.spacing.xl};
+  color: ${props => props.theme.colors.text.secondary};
+`;
 
-const quarters = ['All', 'Q1 2025', 'Q4 2024', 'Q3 2024', 'Q2 2024'];
-const statuses = ['All', 'Valid', 'Invalid', 'Duplicate'];
+const ErrorMessage = styled.div`
+  padding: ${props => props.theme.spacing.md};
+  background-color: #ffebee;
+  color: #c62828;
+  border-radius: ${props => props.theme.borderRadius.md};
+  margin-bottom: ${props => props.theme.spacing.lg};
+`;
 
 const History = () => {
-  const [historyData, setHistoryData] = useState(mockHistoryData);
-  const [filteredData, setFilteredData] = useState(mockHistoryData);
-  const [selectedQuarter, setSelectedQuarter] = useState('All');
-  const [selectedStatus, setSelectedStatus] = useState('All');
-  const [searchTerm, setSearchTerm] = useState('');
+  const { currentUser } = useContext(AuthContext);
+  const [filter, setFilter] = useState({
+    quarter: 'All',
+    partName: 'All',
+    searchQuery: ''
+  });
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
+  const [historyData, setHistoryData] = useState([]);
+  const [filteredData, setFilteredData] = useState([]);
+  const [summary, setSummary] = useState({ totalParts: 0, uniquePartTypes: 0, totalBonus: '$0.00' });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   
-  const applyFilters = () => {
-    let filtered = [...historyData];
+  const itemsPerPage = 10;
+  
+  // Fetch history data from Supabase
+  useEffect(() => {
+    const fetchHistoryData = async () => {
+      if (!currentUser || !currentUser.id) return;
+      
+      setLoading(true);
+      try {
+        // Get user's parts from Supabase
+        const parts = await getUserParts(currentUser.id);
+        
+        // Log parts data to see what's being returned
+        console.log('Parts from API:', parts);
+        if (parts.length > 0) {
+          console.log('First part example:', parts[0]);
+          console.log('Serial number from parts:', parts[0]?.parts?.serial_number);
+        }
+        
+        // Get user bonus data
+        const bonusData = await getUserBonus(currentUser.id);
+        
+        // Format data for display
+        const formattedData = parts.map(entry => {
+          const date = new Date(entry.created_at);
+          
+          // Determine quarter based on date
+          const quarter = `Q${Math.floor((date.getMonth() / 3) + 1)} ${date.getFullYear()}`;
+          
+          // Get the part's serial number - use proper structure exploration
+          let serialNumber = 'Unknown';
+          if (entry.parts) {
+            // Try to directly access or iterate object keys if it's an object
+            if (typeof entry.parts === 'object') {
+              serialNumber = entry.parts.serial_number || 
+                           entry.parts.serialNumber || 
+                           entry.parts.serialnumber || 
+                           entry.part_id || 
+                           'Unknown';
+              
+              // Log the parts object to see its structure
+              console.log('Parts object:', entry.parts, 'Serial number extracted:', serialNumber);
+            }
+          }
+          
+          return {
+            id: entry.id,
+            serialNumber: serialNumber,
+            partName: entry.parts?.name || 'Unknown Part',
+            date: date.toLocaleDateString(),
+            time: date.toLocaleTimeString(),
+            bonus: entry.parts?.status ? '$1.00' : '$0.00',
+            quarter
+          };
+        });
+        
+        // Log formatted data
+        console.log('Formatted data:', formattedData);
+        
+        setHistoryData(formattedData);
+        
+        // Apply initial filtering
+        applyFilters(formattedData, filter);
+        
+        // Calculate summary
+        const summary = calculateSummary(formattedData);
+        setSummary({
+          ...summary,
+          totalBonus: bonusData?.totalBonus ? `$${bonusData.totalBonus.toFixed(2)}` : '$0.00'
+        });
+        
+      } catch (error) {
+        console.error('Error fetching history data:', error);
+        setError('Failed to load your entry history. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
     
-    if (selectedQuarter !== 'All') {
-      filtered = filtered.filter(item => item.quarter === selectedQuarter);
+    fetchHistoryData();
+  }, [currentUser]);
+  
+  // Extract available quarters from data
+  const quarters = useMemo(() => {
+    const uniqueQuarters = new Set(['All']);
+    historyData.forEach(entry => {
+      if (entry.quarter) uniqueQuarters.add(entry.quarter);
+    });
+    return Array.from(uniqueQuarters);
+  }, [historyData]);
+  
+  // Extract unique part names for filtering
+  const partNames = useMemo(() => {
+    const uniquePartNames = new Set(['All']);
+    historyData.forEach(entry => {
+      if (entry.partName && entry.partName !== 'Unknown Part') {
+        uniquePartNames.add(entry.partName);
+      }
+    });
+    return Array.from(uniquePartNames);
+  }, [historyData]);
+  
+  const applyFilters = (data = historyData, newFilter = filter) => {
+    let filtered = [...data];
+    
+    // Apply quarter filter
+    if (newFilter.quarter !== 'All') {
+      filtered = filtered.filter(entry => entry.quarter === newFilter.quarter);
     }
     
-    if (selectedStatus !== 'All') {
-      filtered = filtered.filter(item => item.status === selectedStatus);
+    // Apply part name filter
+    if (newFilter.partName !== 'All') {
+      filtered = filtered.filter(entry => entry.partName === newFilter.partName);
     }
     
-    if (searchTerm) {
-      filtered = filtered.filter(item => 
-        item.partId.toLowerCase().includes(searchTerm.toLowerCase())
+    // Apply search query
+    if (newFilter.searchQuery) {
+      const query = newFilter.searchQuery.toLowerCase();
+      filtered = filtered.filter(entry => 
+        (entry.serialNumber && entry.serialNumber.toLowerCase().includes(query)) ||
+        (entry.partName && entry.partName.toLowerCase().includes(query)) ||
+        entry.date.toLowerCase().includes(query)
       );
     }
     
     setFilteredData(filtered);
-    setCurrentPage(1);
+    setCurrentPage(1); // Reset to first page when filters change
   };
   
-  const calculateSummary = () => {
-    const totalEntries = filteredData.length;
-    const validEntries = filteredData.filter(item => item.status === 'Valid').length;
-    const totalBonus = filteredData.reduce((sum, item) => {
-      return sum + parseFloat(item.bonus.replace('$', '') || 0);
-    }, 0);
+  const handleFilterChange = (newFilter) => {
+    const updatedFilter = { ...filter, ...newFilter };
+    setFilter(updatedFilter);
+    applyFilters(historyData, updatedFilter);
+  };
+  
+  const calculateSummary = (data = historyData) => {
+    const totalParts = data.length;
+    
+    // Count unique part types
+    const uniquePartTypes = new Set();
+    data.forEach(entry => {
+      if (entry.partName && entry.partName !== 'Unknown Part') {
+        uniquePartTypes.add(entry.partName);
+      }
+    });
     
     return {
-      totalEntries,
-      validEntries,
-      totalBonus: `$${totalBonus}`,
-      validPercentage: totalEntries > 0 ? Math.round((validEntries / totalEntries) * 100) : 0
+      totalParts,
+      uniquePartTypes: uniquePartTypes.size
     };
   };
   
-  const summary = calculateSummary();
-  
-  // Pagination logic
+  // Pagination
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
-  const pageStartIndex = (currentPage - 1) * itemsPerPage;
-  const pageEndIndex = pageStartIndex + itemsPerPage;
-  const currentItems = filteredData.slice(pageStartIndex, pageEndIndex);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedData = filteredData.slice(startIndex, startIndex + itemsPerPage);
   
   return (
-    <Layout title="Entry History">
-      <Section>
-        <Card>
-          <h3>Filters</h3>
+    <Layout>
+      <h2>Part Entry History</h2>
+      
+      {error && (
+        <ErrorMessage>
+          {error}
+        </ErrorMessage>
+      )}
+      
+      <SummaryCard>
+        <SummaryItem>
+          <SummaryLabel>Total Parts</SummaryLabel>
+          <SummaryValue>{summary.totalParts}</SummaryValue>
+        </SummaryItem>
+        <SummaryItem>
+          <SummaryLabel>Unique Part Types</SummaryLabel>
+          <SummaryValue>{summary.uniquePartTypes}</SummaryValue>
+        </SummaryItem>
+        <SummaryItem>
+          <SummaryLabel>Total Bonus</SummaryLabel>
+          <SummaryValue>{summary.totalBonus}</SummaryValue>
+        </SummaryItem>
+      </SummaryCard>
+      
+      <Card
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.1 }}
+      >
+        <Section>
+          <h3>Filter Entries</h3>
           <FilterBar>
             <Select 
-              value={selectedQuarter} 
-              onChange={(e) => setSelectedQuarter(e.target.value)}
+              value={filter.quarter} 
+              onChange={(e) => handleFilterChange({ quarter: e.target.value })}
+              aria-label="Filter by quarter"
             >
               {quarters.map(quarter => (
                 <option key={quarter} value={quarter}>{quarter}</option>
               ))}
             </Select>
-            
             <Select 
-              value={selectedStatus} 
-              onChange={(e) => setSelectedStatus(e.target.value)}
+              value={filter.partName} 
+              onChange={(e) => handleFilterChange({ partName: e.target.value })}
+              aria-label="Filter by part name"
             >
-              {statuses.map(status => (
-                <option key={status} value={status}>{status}</option>
+              {partNames.map(name => (
+                <option key={name} value={name}>{name === 'All' ? 'All Parts' : name}</option>
               ))}
             </Select>
-            
             <Input
               type="text"
-              placeholder="Search by Part ID"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search serial number, part name, or date..."
+              value={filter.searchQuery}
+              onChange={(e) => handleFilterChange({ searchQuery: e.target.value })}
+              aria-label="Search entries"
             />
-            
-            <Button onClick={applyFilters}>Apply Filters</Button>
           </FilterBar>
-        </Card>
-      </Section>
-      
-      <Section>
-        <h3>Summary</h3>
-        <SummaryCard>
-          <SummaryItem>
-            <SummaryLabel>Total Entries</SummaryLabel>
-            <SummaryValue>{summary.totalEntries}</SummaryValue>
-          </SummaryItem>
-          
-          <SummaryItem>
-            <SummaryLabel>Valid Entries</SummaryLabel>
-            <SummaryValue>{summary.validEntries}</SummaryValue>
-          </SummaryItem>
-          
-          <SummaryItem>
-            <SummaryLabel>Valid Percentage</SummaryLabel>
-            <SummaryValue>{summary.validPercentage}%</SummaryValue>
-          </SummaryItem>
-          
-          <SummaryItem>
-            <SummaryLabel>Total Bonus</SummaryLabel>
-            <SummaryValue>{summary.totalBonus}</SummaryValue>
-          </SummaryItem>
-        </SummaryCard>
-      </Section>
-      
-      <Section>
-        <Card>
-          <h3>Entry History</h3>
-          
-          <HistoryTable>
-            <TableHead>
-              <tr>
-                <th>Part ID</th>
-                <th>Date</th>
-                <th>Time</th>
-                <th>Status</th>
-                <th>Bonus</th>
-                <th>Quarter</th>
-              </tr>
-            </TableHead>
-            <TableBody>
-              {currentItems.map(item => (
-                <tr key={item.id}>
-                  <td>{item.partId}</td>
-                  <td>{item.date}</td>
-                  <td>{item.time}</td>
-                  <td>
-                    <StatusBadge status={item.status}>
-                      {item.status}
-                    </StatusBadge>
-                  </td>
-                  <td>{item.bonus}</td>
-                  <td>{item.quarter}</td>
+        </Section>
+        
+        {loading ? (
+          <LoadingOverlay>Loading your entry history...</LoadingOverlay>
+        ) : (
+          <>
+            <HistoryTable>
+              <TableHead>
+                <tr>
+                  <th>Serial Number</th>
+                  <th>Part Name</th>
+                  <th>Date</th>
+                  <th>Time</th>
+                  <th>Bonus</th>
+                  <th>Quarter</th>
                 </tr>
-              ))}
-            </TableBody>
-          </HistoryTable>
-          
-          {filteredData.length === 0 && (
-            <div style={{ textAlign: 'center', padding: '2rem', color: '#757575' }}>
-              No data found matching the filters.
-            </div>
-          )}
-          
-          {filteredData.length > 0 && (
-            <Pagination>
-              <PaginationInfo>
-                Showing {pageStartIndex + 1}-{Math.min(pageEndIndex, filteredData.length)} of {filteredData.length} entries
-              </PaginationInfo>
-              
-              <PaginationButtons>
-                <PaginationButton 
-                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                  disabled={currentPage === 1}
-                >
-                  Previous
-                </PaginationButton>
-                
-                {[...Array(totalPages).keys()].map(pageNumber => (
+              </TableHead>
+              <TableBody>
+                {paginatedData.length > 0 ? (
+                  paginatedData.map(entry => (
+                    <tr key={entry.id}>
+                      <td>{entry.serialNumber}</td>
+                      <td>{entry.partName}</td>
+                      <td>{entry.date}</td>
+                      <td>{entry.time}</td>
+                      <td>{entry.bonus}</td>
+                      <td>{entry.quarter}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="6" style={{ textAlign: 'center', padding: '2rem' }}>
+                      No matching entries found
+                    </td>
+                  </tr>
+                )}
+              </TableBody>
+            </HistoryTable>
+            
+            {filteredData.length > 0 && (
+              <Pagination>
+                <PaginationInfo>
+                  Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredData.length)} of {filteredData.length} entries
+                </PaginationInfo>
+                <PaginationButtons>
                   <PaginationButton 
-                    key={pageNumber + 1}
-                    active={currentPage === pageNumber + 1}
-                    onClick={() => setCurrentPage(pageNumber + 1)}
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    aria-label="Previous page"
                   >
-                    {pageNumber + 1}
+                    Previous
                   </PaginationButton>
-                ))}
-                
-                <PaginationButton 
-                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                  disabled={currentPage === totalPages}
-                >
-                  Next
-                </PaginationButton>
-              </PaginationButtons>
-            </Pagination>
-          )}
-        </Card>
-      </Section>
+                  
+                  {/* Show limited number of page buttons */}
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    // Calculate which page numbers to show
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+                    
+                    return (
+                      <PaginationButton
+                        key={pageNum}
+                        active={currentPage === pageNum}
+                        onClick={() => setCurrentPage(pageNum)}
+                        aria-label={`Page ${pageNum}`}
+                        aria-current={currentPage === pageNum ? 'page' : undefined}
+                      >
+                        {pageNum}
+                      </PaginationButton>
+                    );
+                  })}
+                  
+                  <PaginationButton
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    aria-label="Next page"
+                  >
+                    Next
+                  </PaginationButton>
+                </PaginationButtons>
+              </Pagination>
+            )}
+          </>
+        )}
+      </Card>
     </Layout>
   );
 };

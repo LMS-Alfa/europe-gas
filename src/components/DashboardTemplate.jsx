@@ -163,7 +163,7 @@ const DashboardTemplate = ({
                 <Input 
                   label="Part ID"
                   placeholder="Enter part ID"
-                  helper="Enter the spare part ID to record it in the system"
+                  helper="Enter the part ID to record it in the system"
                 />
                 <FormActions>
                   <Button variant="primary" fullWidth>Submit</Button>

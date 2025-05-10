@@ -16,7 +16,11 @@ const LayoutContainer = styled.div`
   background-color: ${props => props.theme.colors.background};
 `;
 
-const Sidebar = styled(motion.aside)`
+const Sidebar = styled(motion.aside).attrs(props => {
+  // Filter out custom props
+  const { isCollapsed, isOpen, ...rest } = props;
+  return rest;
+})`
   width: ${props => props.isCollapsed ? '70px' : '280px'};
   background-color: ${props => props.theme.colors.surface};
   border-right: 1px solid ${props => props.theme.colors.border};
@@ -98,7 +102,11 @@ const CollapsedSidebarButton = styled(motion.button)`
   }
 `;
 
-const Content = styled.main`
+const Content = styled.main.attrs(props => {
+  // Filter out custom props
+  const { sidebarVisible, showSidebar, isMobile, ...rest } = props;
+  return rest;
+})`
   flex: 1;
   padding: ${props => props.theme.spacing.lg};
   margin-left: ${props => {
@@ -264,175 +272,126 @@ const UserRole = styled.div`
   margin-bottom: ${props => props.theme.spacing.sm};
 `;
 
-const DropdownItem = styled.button`
+const DropdownItem = styled.button.attrs(props => {
+  // Filter out custom props
+  const { danger, isCollapsed, ...rest } = props;
+  return rest;
+})`
+  width: 100%;
   display: flex;
   align-items: center;
-  width: 100%;
-  padding: ${props => props.theme.spacing.sm} ${props => props.theme.spacing.md};
+  gap: ${props => props.theme.spacing.md};
+  padding: ${props => props.theme.spacing.md};
+  background: none;
+  border: none;
   text-align: left;
-  gap: ${props => props.theme.spacing.sm};
+  font-size: ${props => props.theme.typography.fontSize.sm};
   color: ${props => props.danger ? props.theme.colors.error : props.theme.colors.text.primary};
-  background-color: transparent;
-  border-radius: ${props => props.theme.borderRadius.md};
+  cursor: pointer;
+  border-radius: ${props => props.theme.borderRadius.sm};
   
   &:hover {
-    background-color: ${props => props.theme.colors.background};
-    color: ${props => props.danger ? props.theme.colors.error : props.theme.colors.primary};
+    background-color: ${props => props.danger ? 
+      `${props.theme.colors.error}10` : 
+      props.theme.colors.hover};
   }
   
   ${props => props.isCollapsed && `
     justify-content: center;
     padding: ${props.theme.spacing.sm};
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
   `}
 `;
 
-const Logo = styled(motion.div)`
-  font-size: ${props => props.isCollapsed ? props.theme.typography.fontSize.md : props.theme.typography.fontSize.xl};
+const Logo = styled(motion.div).attrs(props => {
+  // Filter out custom props
+  const { isCollapsed, ...rest } = props;
+  return rest;
+})`
   font-weight: ${props => props.theme.typography.fontWeight.bold};
-  margin-bottom: ${props => props.isCollapsed ? props.theme.spacing.xl : props.theme.spacing.md};
+  font-size: ${props => props.isCollapsed ? '1.2rem' : '1.5rem'};
   color: ${props => props.theme.colors.primary};
   display: flex;
   align-items: center;
-  justify-content: ${props => props.isCollapsed ? 'center' : 'space-between'};
-  position: relative;
-  ${props => props.isCollapsed && `
-    width: 100%;
-    padding-top: ${props.theme.spacing.md};
-  `}
-  
-  span {
-    background: linear-gradient(135deg, ${props => props.theme.colors.primary}, ${props => props.theme.colors.secondary});
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    ${props => props.isCollapsed && `
-      font-size: ${props.theme.typography.fontSize.xl};
-      font-weight: 900;
-      line-height: 1;
-    `}
-  }
-  
-  @media (max-width: ${props => props.theme.breakpoints.md}) {
-    font-size: ${props => props.theme.typography.fontSize.lg};
-    margin-bottom: ${props => props.theme.spacing.sm};
-  }
+  gap: ${props => props.theme.spacing.sm};
 `;
 
-const NavMenu = styled.nav`
+const NavMenu = styled.nav.attrs(props => {
+  // Filter out custom props
+  const { isCollapsed, ...rest } = props;
+  return rest;
+})`
   display: flex;
   flex-direction: column;
+  gap: ${props => props.theme.spacing.sm};
   flex: 1;
-  margin-top: 0;
-  width: 100%;
-  pointer-events: auto;
+  margin-bottom: ${props => props.theme.spacing.lg};
   
   ${props => props.isCollapsed && `
     align-items: center;
   `}
 `;
 
-const NavItem = styled(motion(Link))`
-  padding: ${props => props.isCollapsed ? props.theme.spacing.sm : props.theme.spacing.md};
-  margin-bottom: ${props => props.theme.spacing.sm};
-  border-radius: ${props => props.theme.borderRadius.md};
-  color: ${props => props.active ? props.theme.colors.primary : props.theme.colors.text.primary};
-  background-color: ${props => props.active ? `${props.theme.colors.primary}10` : 'transparent'};
-  font-weight: ${props => props.active ? props.theme.typography.fontWeight.medium : props.theme.typography.fontWeight.regular};
+const NavItem = styled(motion(Link)).attrs(props => {
+  // Filter out custom props
+  const { active, isCollapsed, ...rest } = props;
+  return rest;
+})`
   display: flex;
   align-items: center;
-  justify-content: ${props => props.isCollapsed ? 'center' : 'flex-start'};
+  gap: ${props => props.theme.spacing.md};
+  padding: ${props => props.isCollapsed ? 
+    props.theme.spacing.sm : 
+    `${props.theme.spacing.sm} ${props.theme.spacing.md}`};
+  border-radius: ${props => props.theme.borderRadius.md};
+  color: ${props => props.active ? 
+    props.theme.colors.primary : 
+    props.theme.colors.text.primary};
+  text-decoration: none;
   transition: all ${props => props.theme.transition.fast};
   position: relative;
-  width: ${props => props.isCollapsed ? '50px' : '100%'};
-  height: ${props => props.isCollapsed ? '50px' : 'auto'};
-  pointer-events: auto;
-  z-index: 1;
-  
-  ${props => props.isCollapsed && props.active && `
-    background-color: ${props.theme.colors.primary}15;
-    box-shadow: ${props.theme.shadows.sm};
-  `}
   
   &:hover {
-    background-color: ${props => `${props.theme.colors.primary}20`};
-    transform: ${props => props.isCollapsed ? 'scale(1.1)' : 'translateX(4px)'};
+    background-color: ${props => props.active ? 
+      `${props.theme.colors.primary}15` : 
+      props.theme.colors.hover};
   }
   
-  &:before {
-    content: '';
-    width: ${props => props.active ? '4px' : '0'};
-    height: ${props => props.isCollapsed ? '40%' : '60%'};
-    background-color: ${props => props.theme.colors.primary};
-    border-radius: ${props => props.theme.borderRadius.md};
-    position: absolute;
-    left: ${props => props.isCollapsed ? '0' : '0'};
-    transition: all ${props => props.theme.transition.fast};
-  }
-  
-  ${props => props.isCollapsed && `
-    &:after {
-      content: attr(data-tooltip);
-      position: absolute;
-      left: 100%;
-      top: 50%;
-      transform: translateY(-50%);
-      background-color: ${props.theme.colors.surface};
-      color: ${props.theme.colors.text.primary};
-      padding: ${props.theme.spacing.xs} ${props.theme.spacing.sm};
-      border-radius: ${props.theme.borderRadius.sm};
-      font-size: ${props.theme.typography.fontSize.sm};
-      white-space: nowrap;
-      box-shadow: ${props.theme.shadows.md};
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.2s ease;
-      z-index: 1000;
-      margin-left: ${props.theme.spacing.md};
-    }
-    
-    &:hover:after {
-      opacity: 1;
-    }
+  ${props => props.active && `
+    background-color: ${props.theme.colors.primary}10;
+    font-weight: ${props.theme.typography.fontWeight.medium};
   `}
   
-  @media (max-width: ${props => props.theme.breakpoints.md}) {
-    padding: ${props => props.theme.spacing.sm} ${props => props.theme.spacing.md};
-    margin-bottom: ${props => props.theme.spacing.xs};
-    font-size: ${props => props.theme.typography.fontSize.md};
-    
-    &:hover {
-      background-color: ${props => `${props.theme.colors.primary}20`};
-    }
-    
-    &:active {
-      background-color: ${props => `${props.theme.colors.primary}30`};
-    }
-  }
+  ${props => props.isCollapsed && `
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    padding: 0;
+  `}
 `;
 
-const NavIcon = styled.span`
-  margin-right: ${props => props.isCollapsed ? '0' : '10px'};
-  font-size: 1.2rem;
+const NavIcon = styled.div.attrs(props => {
+  // Filter out custom props
+  const { isCollapsed, ...rest } = props;
+  return rest;
+})`
+  font-size: ${props => props.isCollapsed ? '1.25rem' : '1.1rem'};
+  min-width: ${props => props.isCollapsed ? 'auto' : '24px'};
   display: flex;
   align-items: center;
   justify-content: center;
-  
-  ${props => props.isCollapsed && `
-    font-size: 1.4rem;
-    width: 100%;
-    height: 100%;
-  `}
-  
-  @media (max-width: ${props => props.theme.breakpoints.md}) {
-    margin-right: 12px;
-    font-size: 1.25rem;
-  }
 `;
 
-const NavText = styled.span`
-  display: ${props => props.isCollapsed ? 'none' : 'block'};
+const NavText = styled.span.attrs(props => {
+  // Filter out custom props
+  const { isCollapsed, ...rest } = props;
+  return rest;
+})`
+  font-size: ${props => props.theme.typography.fontSize.sm};
+  transition: opacity 0.2s;
+  white-space: nowrap;
+  opacity: ${props => props.isCollapsed ? 0 : 1};
+  max-width: ${props => props.isCollapsed ? 0 : '200px'};
+  overflow: hidden;
 `;
 
 const Overlay = styled(motion.div)`
@@ -472,43 +431,38 @@ const PageTitle = styled(motion.h1)`
   }
 `;
 
-const LogoWrapper = styled.div`
-  position: sticky;
-  top: 0;
-  background-color: ${props => props.theme.colors.surface};
-  z-index: ${props => props.theme.zIndex.header};
-  padding-bottom: ${props => props.theme.spacing.sm};
-  margin-bottom: ${props => props.theme.spacing.sm};
-  ${props => props.isCollapsed && `
-    display: flex;
-    flex-direction: column;
-    align-content: space-around;
-    padding-top: ${props.theme.spacing.md};
-  `}
-  
-  @media (max-width: ${props => props.theme.breakpoints.md}) {
-    padding-bottom: ${props => props.theme.spacing.xs};
-    margin-bottom: ${props => props.theme.spacing.xs};
-  }
+const LogoWrapper = styled.div.attrs(props => {
+  // Filter out custom props
+  const { isCollapsed, ...rest } = props;
+  return rest;
+})`
+  display: flex;
+  align-items: center;
+  justify-content: ${props => props.isCollapsed ? 'center' : 'space-between'};
+  padding: ${props => props.isCollapsed ? 
+    props.theme.spacing.sm : 
+    `${props.theme.spacing.sm} ${props.theme.spacing.md}`};
+  margin-bottom: ${props => props.theme.spacing.lg};
 `;
 
-const ToggleButtonContainer = styled.div`
-  position: absolute;
-  right: ${props => props.isCollapsed ? '0px' : '-14px'};
-  top: ${props => props.isCollapsed ? '30px' : '0'};
-  z-index: ${props => props.theme.zIndex.header + 2};
-  ${props => props.isCollapsed && `
-    opacity: 0;
-    transform:scale(3)
-  `}
+const ToggleButtonContainer = styled.div.attrs(props => {
+  // Filter out custom props
+  const { isCollapsed, ...rest } = props;
+  return rest;
+})`
+  display: flex;
+  align-items: center;
+  justify-content: center;
 `;
 
-const Users = styled.div`
+const Users = styled.div.attrs(props => {
+  // Filter out any custom props
+  const { ...rest } = props;
+  return rest;
+})`
   display: flex;
   flex-direction: column;
-  margin-bottom: ${props => props.theme.spacing.sm};
-  padding-bottom: ${props => props.theme.spacing.sm};
-  border-bottom: 1px solid ${props => props.theme.colors.border}10;
+  gap: ${props => props.theme.spacing.xs};
 `;
 
 const sidebarVariants = {
@@ -656,8 +610,7 @@ const Layout = ({ children, title }) => {
         { path: '/admin', label: 'Dashboard', icon: 'dashboard' },
         { path: '/admin/parts', label: 'Spare Parts', icon: 'parts' },
         { path: '/admin/users', label: 'Users', icon: 'users' },
-        { path: '/admin/reports', label: 'Bonus Reports', icon: 'reports' },
-        { path: '/admin/auth-test', label: 'Auth Testing', icon: 'settings' },
+        { path: '/admin/reports', label: 'Bonus Reports', icon: 'reports' }
       ];
     } else {
       return [

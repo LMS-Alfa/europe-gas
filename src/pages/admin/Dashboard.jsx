@@ -1,13 +1,27 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { motion, useAnimation } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import Layout from '../../components/Layout';
 import { useAuth } from '../../contexts/AuthContext';
+import { getDashboardStats, getRecentActivity } from '../../utils/api';
+import { FiLoader, FiTool, FiUsers, FiDollarSign, FiRefreshCw } from 'react-icons/fi';
 
 const DashboardGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: ${props => props.theme.spacing.lg};
+  margin-bottom: ${props => props.theme.spacing.xl};
+  
+  @media (max-width: ${props => props.theme.breakpoints.sm}) {
+    grid-template-columns: 1fr;
+    gap: ${props => props.theme.spacing.md};
+  }
+`;
+
+const StatCardGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: ${props => props.theme.spacing.lg};
   margin-bottom: ${props => props.theme.spacing.xl};
   
@@ -43,13 +57,88 @@ const Card = styled(motion.div)`
   }
 `;
 
+const StatCard = styled(motion.div)`
+  background-color: ${props => props.theme.colors.surface};
+  border-radius: ${props => props.theme.borderRadius.lg};
+  padding: ${props => props.theme.spacing.xl};
+  box-shadow: ${props => props.theme.shadows.sm};
+  transition: all ${props => props.theme.transition.medium};
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  
+  &:hover {
+    box-shadow: ${props => props.theme.shadows.md};
+    transform: translateY(-5px);
+  }
+`;
+
+const StatHeader = styled.div`
+  display: flex;
+  align-items: center;
+  margin-bottom: ${props => props.theme.spacing.md};
+  width: 100%;
+`;
+
+const IconWrapper = styled.div`
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: ${props => props.theme.spacing.md};
+  
+  &.parts {
+    background-color: rgba(74, 144, 226, 0.1);
+    color: #4A90E2;
+  }
+  
+  &.users {
+    background-color: rgba(80, 200, 120, 0.1);
+    color: #50C878;
+  }
+  
+  &.bonuses {
+    background-color: rgba(90, 111, 220, 0.1);
+    color: #5A6FDC;
+  }
+`;
+
+const StatLabel = styled.div`
+  font-size: ${props => props.theme.typography.fontSize.sm};
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: ${props => props.theme.colors.text.secondary};
+  font-weight: 500;
+  margin-bottom: ${props => props.theme.spacing.xs};
+`;
+
+const StatValue = styled.div`
+  font-size: 2.5rem;
+  font-weight: ${props => props.theme.typography.fontWeight.bold};
+  color: ${props => props.theme.colors.text.primary};
+  
+  &.parts {
+    color: #4A90E2;
+  }
+  
+  &.users {
+    color: #50C878;
+  }
+  
+  &.bonuses {
+    color: #5A6FDC;
+  }
+`;
+
 const Statistic = styled(motion.div)`
   display: flex;
   align-items: center;
   margin-bottom: ${props => props.theme.spacing.sm};
 `;
 
-const StatValue = styled.span`
+const OldStatValue = styled.span`
   font-size: ${props => props.theme.typography.fontSize.xl};
   font-weight: ${props => props.theme.typography.fontWeight.bold};
   margin-right: ${props => props.theme.spacing.sm};
@@ -58,7 +147,7 @@ const StatValue = styled.span`
   -webkit-text-fill-color: transparent;
 `;
 
-const StatLabel = styled.span`
+const OldStatLabel = styled.span`
   font-size: ${props => props.theme.typography.fontSize.sm};
   color: ${props => props.theme.colors.text.secondary};
 `;
@@ -156,20 +245,6 @@ const WelcomeMessage = styled(motion.div)`
   }
 `;
 
-// Mock data for demo purposes
-const mockData = {
-  totalParts: 523,
-  partsEnteredToday: 28,
-  totalUsers: 12,
-  totalBonuses: '$345',
-  recentActivity: [
-    { id: 1, title: 'User John Doe entered 5 parts', time: '10 minutes ago' },
-    { id: 2, title: 'Admin uploaded 50 new parts', time: '1 hour ago' },
-    { id: 3, title: 'User Jane Smith entered 3 parts', time: '2 hours ago' },
-    { id: 4, title: 'Quarterly bonuses calculated', time: '1 day ago' },
-  ]
-};
-
 const cardVariants = {
   hidden: { opacity: 0, y: 20 },
   visible: { 
@@ -196,8 +271,111 @@ const listItemVariants = {
   })
 };
 
+// Add a RefreshButton component
+const RefreshButton = styled(motion.button)`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: ${props => props.theme.colors.surface};
+  color: ${props => props.theme.colors.primary};
+  border: 1px solid ${props => props.theme.colors.border};
+  border-radius: ${props => props.theme.borderRadius.md};
+  padding: ${props => props.theme.spacing.sm} ${props => props.theme.spacing.md};
+  margin-bottom: ${props => props.theme.spacing.md};
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background-color: ${props => props.theme.colors.primary}10;
+  }
+  
+  svg {
+    margin-right: ${props => props.theme.spacing.sm};
+  }
+  
+  &.refreshing svg {
+    animation: spin 1s linear infinite;
+  }
+  
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+`;
+
 const Dashboard = () => {
   const { currentUser } = useAuth();
+  const [dashboardStats, setDashboardStats] = useState({
+    totalParts: 0,
+    partsEnteredToday: 0,
+    totalUsers: 0,
+    totalBonuses: 0
+  });
+  const [recentActivity, setRecentActivity] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  
+  // Fetch dashboard data function
+  const fetchDashboardData = async () => {
+    try {
+      setRefreshing(true);
+      
+      // Fetch dashboard statistics
+      const stats = await getDashboardStats();
+      console.log('Fetched stats:', stats);
+      setDashboardStats(stats);
+      
+      // Fetch recent activity
+      const activity = await getRecentActivity(5);
+      setRecentActivity(activity);
+      
+      // Update last updated timestamp
+      setLastUpdated(new Date());
+      
+      // Clear any previous errors
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching dashboard data:', err);
+      setError('Failed to load dashboard data. Please try again.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+  
+  // Fetch data on component mount
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+  
+  // Handle refresh button click
+  const handleRefresh = () => {
+    if (!refreshing) {
+      fetchDashboardData();
+    }
+  };
+  
+  // Format last updated time
+  const getLastUpdatedText = () => {
+    if (!lastUpdated) return '';
+    return `Last updated: ${lastUpdated.toLocaleTimeString()}`;
+  };
+  
+  // Format number with commas
+  const formatNumber = (num) => {
+    if (num === undefined || num === null) return "0";
+    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  };
+  
+  // Format currency with dollar sign and commas
+  const formatCurrency = (amount) => {
+    if (amount === undefined || amount === null) return "$0.00";
+    return `$${parseFloat(amount).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+  };
   
   const getTimeOfDay = () => {
     const hour = new Date().getHours();
@@ -206,6 +384,32 @@ const Dashboard = () => {
     return "evening";
   };
 
+  // Loading state
+  if (loading) {
+    return (
+      <Layout title="Admin Dashboard">
+        <LoadingContainer>
+          <FiLoader size={40} className="spinner" />
+          <LoadingText>Loading dashboard data...</LoadingText>
+        </LoadingContainer>
+      </Layout>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <Layout title="Admin Dashboard">
+        <ErrorContainer>
+          <ErrorMessage>{error}</ErrorMessage>
+          <Button onClick={() => window.location.reload()}>
+            Try Again
+          </Button>
+        </ErrorContainer>
+      </Layout>
+    );
+  }
+
   return (
     <Layout title="Admin Dashboard">
       <WelcomeMessage
@@ -213,83 +417,59 @@ const Dashboard = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        Good {getTimeOfDay()}, <span>{currentUser?.name || 'Admin'}</span>! Here's the system overview.
+        Good {getTimeOfDay()}, <span>{currentUser?.firstName || currentUser?.name || 'Admin'}</span>! Here's the system overview.
       </WelcomeMessage>
       
-      <DashboardGrid>
-        <Card
-          variants={cardVariants}
-          initial="hidden"
-          animate="visible"
-          whileHover="hover"
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <div style={{ fontSize: '0.85rem', color: '#888' }}>{getLastUpdatedText()}</div>
+        <RefreshButton 
+          onClick={handleRefresh} 
+          className={refreshing ? 'refreshing' : ''}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          disabled={refreshing}
         >
-          <CardContent>
-            <h2>Inventory</h2>
-            <Statistic
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.2 }}
-            >
-              <StatValue>{mockData.totalParts}</StatValue>
-              <StatLabel>Total Parts</StatLabel>
-            </Statistic>
-            <Statistic
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.3 }}
-            >
-              <StatValue>{mockData.partsEnteredToday}</StatValue>
-              <StatLabel>Parts Entered Today</StatLabel>
-            </Statistic>
-          </CardContent>
-        </Card>
+          <FiRefreshCw size={16} /> {refreshing ? 'Refreshing...' : 'Refresh Data'}
+        </RefreshButton>
+      </div>
+      
+      <StatCardGrid>
+        <StatCard
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+        >
+          <IconWrapper className="parts">
+            <FiTool size={24} />
+          </IconWrapper>
+          <StatLabel>TOTAL PARTS</StatLabel>
+          <StatValue className="parts">{formatNumber(dashboardStats.totalParts)}</StatValue>
+        </StatCard>
         
-        <Card
-          variants={cardVariants}
-          initial="hidden"
-          animate="visible"
-          whileHover="hover"
-          transition={{ delay: 0.1 }}
+        <StatCard
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.1 }}
         >
-          <CardContent>
-            <h2>Users</h2>
-            <Statistic
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.2 }}
-            >
-              <StatValue>{mockData.totalUsers}</StatValue>
-              <StatLabel>Total Users</StatLabel>
-            </Statistic>
-            <CardDescription>
-              Monitor user activity and manage user accounts.
-            </CardDescription>
-          </CardContent>
-        </Card>
+          <IconWrapper className="users">
+            <FiUsers size={24} />
+          </IconWrapper>
+          <StatLabel>ACTIVE USERS</StatLabel>
+          <StatValue className="users">{formatNumber(dashboardStats.totalUsers)}</StatValue>
+        </StatCard>
         
-        <Card
-          variants={cardVariants}
-          initial="hidden"
-          animate="visible"
-          whileHover="hover"
-          transition={{ delay: 0.2 }}
+        <StatCard
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.2 }}
         >
-          <CardContent>
-            <h2>Bonuses</h2>
-            <Statistic
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.2 }}
-            >
-              <StatValue>{mockData.totalBonuses}</StatValue>
-              <StatLabel>Total Bonuses This Quarter</StatLabel>
-            </Statistic>
-            <CardDescription>
-              Track bonuses and prepare quarterly reports.
-            </CardDescription>
-          </CardContent>
-        </Card>
-      </DashboardGrid>
+          <IconWrapper className="bonuses">
+            <FiDollarSign size={24} />
+          </IconWrapper>
+          <StatLabel>TOTAL BONUSES</StatLabel>
+          <StatValue className="bonuses">{formatCurrency(dashboardStats.totalBonuses)}</StatValue>
+        </StatCard>
+      </StatCardGrid>
       
       <Section>
         <h3>Recent Activity</h3>
@@ -300,19 +480,23 @@ const Dashboard = () => {
         >
           <CardContent>
             <RecentActivity>
-              {mockData.recentActivity.map((activity, i) => (
-                <ActivityItem 
-                  key={activity.id}
-                  custom={i}
-                  variants={listItemVariants}
-                  initial="hidden"
-                  animate="visible"
-                  whileHover={{ x: 5 }}
-                >
-                  <ActivityTitle>{activity.title}</ActivityTitle>
-                  <ActivityTime>{activity.time}</ActivityTime>
-                </ActivityItem>
-              ))}
+              {recentActivity.length > 0 ? (
+                recentActivity.map((activity, i) => (
+                  <ActivityItem 
+                    key={activity.id}
+                    custom={i}
+                    variants={listItemVariants}
+                    initial="hidden"
+                    animate="visible"
+                    whileHover={{ x: 5 }}
+                  >
+                    <ActivityTitle>{activity.title}</ActivityTitle>
+                    <ActivityTime>{activity.time}</ActivityTime>
+                  </ActivityItem>
+                ))
+              ) : (
+                <EmptyState>No recent activity</EmptyState>
+              )}
             </RecentActivity>
           </CardContent>
         </Card>
@@ -391,5 +575,64 @@ const Dashboard = () => {
     </Layout>
   );
 };
+
+const LoadingContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+  color: ${props => props.theme.colors.text.secondary};
+  
+  .spinner {
+    animation: spin 1.5s linear infinite;
+  }
+  
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+`;
+
+const LoadingText = styled.div`
+  margin-top: ${props => props.theme.spacing.md};
+  font-size: ${props => props.theme.typography.fontSize.md};
+`;
+
+const ErrorContainer = styled.div`
+  text-align: center;
+  padding: ${props => props.theme.spacing.xl};
+  background-color: ${props => `${props.theme.colors.error}10`};
+  border-radius: ${props => props.theme.borderRadius.md};
+  margin: ${props => props.theme.spacing.xl} 0;
+`;
+
+const ErrorMessage = styled.div`
+  color: ${props => props.theme.colors.error};
+  margin-bottom: ${props => props.theme.spacing.lg};
+  font-size: ${props => props.theme.typography.fontSize.md};
+`;
+
+const Button = styled.button`
+  padding: ${props => props.theme.spacing.sm} ${props => props.theme.spacing.lg};
+  background-color: ${props => props.theme.colors.primary};
+  color: white;
+  border: none;
+  border-radius: ${props => props.theme.borderRadius.md};
+  cursor: pointer;
+  font-weight: ${props => props.theme.typography.fontWeight.medium};
+  transition: all ${props => props.theme.transition.fast};
+  
+  &:hover {
+    background-color: ${props => props.theme.colors.secondary};
+  }
+`;
+
+const EmptyState = styled.div`
+  text-align: center;
+  padding: ${props => props.theme.spacing.md};
+  color: ${props => props.theme.colors.text.secondary};
+  font-style: italic;
+`;
 
 export default Dashboard; 

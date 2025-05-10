@@ -12,7 +12,6 @@ import PartsUpload from './pages/admin/PartsUpload';
 import UserManagement from './pages/admin/UserManagement';
 import BonusReports from './pages/admin/BonusReports';
 import UserDashboard from './pages/UserDashboard';
-import AuthTestPanel from './pages/admin/AuthTestPanel';
 import Layout from './components/Layout';
 
 // Animated route wrapper
@@ -67,16 +66,6 @@ const AnimatedRoutes = () => {
             </ProtectedRoute>
           } 
         />
-        <Route 
-          path="/admin/auth-test" 
-          element={
-            <ProtectedRoute requiredRole="admin">
-              <Layout title="Auth Testing">
-                <AuthTestPanel />
-              </Layout>
-            </ProtectedRoute>
-          } 
-        />
         
         {/* User Route - Unified Page */}
         <Route 
@@ -93,16 +82,6 @@ const AnimatedRoutes = () => {
         {/* Redirect old user routes to dashboard */}
         <Route path="/parts" element={<Navigate to="/dashboard" replace />} />
         <Route path="/history" element={<Navigate to="/dashboard" replace />} />
-        
-        {/* Development Route - Available without login (for testing) */}
-        <Route 
-          path="/dev/auth-test" 
-          element={
-            <Layout title="Auth Testing">
-              <AuthTestPanel />
-            </Layout>
-          } 
-        />
         
         {/* Catch All Route */}
         <Route path="*" element={<Navigate to="/login" replace />} />

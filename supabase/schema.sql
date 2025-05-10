@@ -33,28 +33,31 @@ CREATE POLICY "Allow admins to update all profiles" ON public.profiles
 CREATE POLICY "Allow admins to insert profiles" ON public.profiles
   FOR INSERT WITH CHECK (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin'));
 
--- Spare Parts table
-CREATE TABLE public.spare_parts (
+-- Parts table
+CREATE TABLE public.parts (
   id SERIAL PRIMARY KEY,
   part_id TEXT NOT NULL UNIQUE,
+  part_name TEXT,
   description TEXT,
   category TEXT,
+  price NUMERIC(10, 2) DEFAULT 0,
+  stock INTEGER DEFAULT 0,
   uploaded_by UUID REFERENCES auth.users ON DELETE SET NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Enable RLS for spare_parts
-ALTER TABLE public.spare_parts ENABLE ROW LEVEL SECURITY;
+-- Enable RLS for parts
+ALTER TABLE public.parts ENABLE ROW LEVEL SECURITY;
 
--- Create policies for spare_parts table
-CREATE POLICY "Allow read access to all authenticated users" ON public.spare_parts
+-- Create policies for parts table
+CREATE POLICY "Allow read access to all authenticated users" ON public.parts
   FOR SELECT USING (auth.role() = 'authenticated');
 
-CREATE POLICY "Allow admins to insert spare parts" ON public.spare_parts
+CREATE POLICY "Allow admins to insert parts" ON public.parts
   FOR INSERT WITH CHECK (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin'));
 
-CREATE POLICY "Allow admins to update spare parts" ON public.spare_parts
+CREATE POLICY "Allow admins to update parts" ON public.parts
   FOR UPDATE USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin'));
 
 -- User Parts table (tracks parts entered by users)
@@ -112,8 +115,8 @@ CREATE POLICY "Allow admins to update bonus payments" ON public.bonus_payments
 -- Create function to automatically validate parts and calculate bonus
 CREATE OR REPLACE FUNCTION validate_part() RETURNS TRIGGER AS $$
 BEGIN
-  -- Check if the part exists in the spare_parts table
-  IF EXISTS (SELECT 1 FROM public.spare_parts WHERE part_id = NEW.part_id) THEN
+  -- Check if the part exists in the parts table
+  IF EXISTS (SELECT 1 FROM public.parts WHERE part_id = NEW.part_id) THEN
     -- Check if this user has already entered this part (prevent duplicates)
     IF NOT EXISTS (SELECT 1 FROM public.user_parts 
                   WHERE user_id = NEW.user_id AND part_id = NEW.part_id AND id != NEW.id) THEN

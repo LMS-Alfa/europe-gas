@@ -77,57 +77,64 @@ export const directAuth = async (phone, password) => {
  */
 export const createNewUser = async (userData) => {
   try {
-    // First create the user in the auth system
-    let authResponse;
+    // Generate a numeric ID for the new user
+    // Use current timestamp as a base for the ID
+    const userId = Date.now();
     
-    // If using password auth
-    if (userData.password) {
-      authResponse = await supabase.auth.signUp({
-        email: userData.email,
-        phone: userData.phone,
-        password: userData.password,
-        options: {
-          data: {
-            firstName: userData.firstName,
-            lastName: userData.lastName,
-            role: userData.role || 'user'
-          }
-        }
-      });
-    } else {
-      // If using phone auth
-      authResponse = await supabase.auth.signInWithOtp({
-        phone: userData.phone
-      });
+    console.log(`Creating new user with generated ID: ${userId}`);
+    console.log('User data:', {
+      firstName: userData.firstName,
+      lastName: userData.lastName,
+      email: userData.email,
+      phone: userData.phone,
+      role: userData.role
+    });
+    
+    // Check if a user with this phone already exists
+    const { data: existingUser, error: checkError } = await supabase
+      .from('profiles')
+      .select('id, phone')
+      .eq('phone', userData.phone)
+      .maybeSingle();
+      
+    if (checkError) {
+      console.error('Error checking for existing user:', checkError);
     }
     
-    if (authResponse.error) {
-      throw authResponse.error;
+    if (existingUser) {
+      console.log(`User with phone ${userData.phone} already exists with ID: ${existingUser.id}`);
+      throw new Error(`A user with this phone number already exists: ${userData.phone}`);
     }
     
-    // For testing purposes, create a profile directly
-    // This is useful when we can't complete OTP verification
-    // In production, this wouldn't be necessary as the trigger would create the profile
+    // Skip authentication and directly insert into profiles table
     const { data: profileData, error: profileError } = await supabase
       .from('profiles')
       .insert({
-        id: authResponse.data?.user?.id,
+        id: userId,
         firstName: userData.firstName,
         lastName: userData.lastName,
         email: userData.email,
         phone: userData.phone,
         password: userData.password, // Note: For production, never store plain passwords
         role: userData.role || 'user'
-      });
+      })
+      .select()
+      .single();
       
     if (profileError) {
-      console.warn('Profile creation error:', profileError);
-      // Not throwing here since the trigger might handle it
+      console.error('Profile creation error:', profileError);
+      throw profileError;
     }
     
+    console.log('Successfully created new user with profile data:', profileData);
+    
     return {
-      auth: authResponse.data,
-      profile: profileData
+      profile: profileData,
+      auth: {
+        user: {
+          id: userId
+        }
+      }
     };
   } catch (error) {
     console.error('Error creating user:', error);
@@ -213,6 +220,113 @@ export const listAllUsers = async () => {
     return data;
   } catch (error) {
     console.error('Error listing users:', error);
+    throw error;
+  }
+};
+
+/**
+ * Updates a user's profile
+ * @param {string} userId - The user's ID
+ * @param {Object} updates - Fields to update
+ * @returns {Promise<Object>} Updated user data
+ */
+export const updateUser = async (userId, updates) => {
+  try {
+    // Validate inputs
+    if (!userId) {
+      throw new Error('User ID is required for update');
+    }
+    
+    // Ensure userId is treated as a number if it's a numeric string
+    const numericId = Number(userId);
+    if (isNaN(numericId)) {
+      throw new Error('User ID must be a valid number');
+    }
+    
+    console.log(`Updating user with ID: ${numericId} (original: ${userId})`);
+    
+    // Create an update object with only the fields that are provided
+    const updateData = {};
+    if (updates.firstName !== undefined) updateData.firstName = updates.firstName;
+    if (updates.lastName !== undefined) updateData.lastName = updates.lastName;
+    if (updates.email !== undefined) updateData.email = updates.email;
+    if (updates.phone !== undefined) updateData.phone = updates.phone;
+    if (updates.role !== undefined) updateData.role = updates.role;
+    if (updates.password && updates.password.trim() !== '') updateData.password = updates.password;
+    
+    console.log('Update data:', updateData);
+    
+    const { data, error } = await supabase
+      .from('profiles')
+      .update(updateData)
+      .eq('id', numericId)
+      .select()
+      .single();
+      
+    if (error) {
+      console.error('Supabase error updating user:', error);
+      throw error;
+    }
+    
+    if (!data) {
+      throw new Error('No user found with the provided ID');
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error updating user:', error);
+    throw error;
+  }
+};
+
+/**
+ * Deletes a user from the profiles table
+ * @param {string|number} userId - The user's ID to delete
+ * @returns {Promise<Object>} Result of the deletion operation
+ */
+export const deleteUser = async (userId) => {
+  try {
+    // Ensure userId is treated as a number if it's a numeric string
+    const numericId = Number(userId);
+    if (isNaN(numericId)) {
+      throw new Error('User ID must be a valid number');
+    }
+    
+    console.log(`Deleting user with ID: ${numericId} (original: ${userId})`);
+    
+    // First check if user exists
+    const { data: userData, error: userError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', numericId)
+      .single();
+      
+    if (userError) {
+      if (userError.code === 'PGRST116') {
+        throw new Error(`No user found with ID: ${numericId}`);
+      }
+      throw userError;
+    }
+    
+    if (!userData) {
+      throw new Error(`No user found with ID: ${numericId}`);
+    }
+    
+    // Delete the user
+    const { data, error } = await supabase
+      .from('profiles')
+      .delete()
+      .eq('id', numericId);
+      
+    if (error) {
+      console.error('Supabase error deleting user:', error);
+      throw error;
+    }
+    
+    console.log(`Successfully deleted user with ID: ${numericId}`);
+    return { success: true, message: 'User deleted successfully' };
+  } catch (error) {
+    console.error('Error deleting user:', error);
     throw error;
   }
 }; 
