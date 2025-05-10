@@ -85,6 +85,32 @@ const ChartContainer = styled.div`
   height: 300px;
   margin-bottom: 1rem;
   
+  /* Make chart elements responsive to theme */
+  .recharts-cartesian-grid-horizontal line,
+  .recharts-cartesian-grid-vertical line {
+    stroke: ${props => props.theme.colors.border};
+  }
+  
+  .recharts-cartesian-axis-line {
+    stroke: ${props => props.theme.colors.border};
+  }
+  
+  .recharts-cartesian-axis-tick-line {
+    stroke: ${props => props.theme.colors.border};
+  }
+  
+  .recharts-cartesian-axis-tick-value {
+    fill: ${props => props.theme.colors.text.primary};
+  }
+  
+  .recharts-label {
+    fill: ${props => props.theme.colors.text.primary};
+  }
+  
+  .recharts-text {
+    fill: ${props => props.theme.colors.text.primary};
+  }
+  
   @media (max-width: ${props => props.theme.breakpoints.md}) {
     height: 280px;
   }
@@ -146,12 +172,12 @@ const CustomTooltip = ({ active, payload, label, formatter }) => {
   return (
     <div 
       style={{ 
-        background: '#2a2a2a', // Darker background for tooltip
+        background: 'var(--tooltip-bg, rgba(97, 97, 97, 0.9))', 
         padding: '10px 14px', 
-        border: '1px solid #444',
+        border: '1px solid var(--tooltip-border, #777)',
         borderRadius: '4px',
-        boxShadow: '0 4px 8px rgba(0,0,0,0.3)',
-        color: '#fff' // White text for dark mode
+        boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
+        color: 'var(--tooltip-text, #fff)'
       }}
     >
       <p style={{ margin: '0 0 5px', fontWeight: 'bold' }}>{label}</p>
@@ -556,41 +582,34 @@ const AdminDashboard = () => {
                 barSize={36}
                 barGap={3}
               >
-                {/* Darker grid lines for contrast */}
-                <CartesianGrid strokeDasharray="3 3" stroke="#444" />
-                {/* White text for dark mode */}
+                {/* Theme-aware grid lines */}
+                <CartesianGrid strokeDasharray="3 3" />
+                {/* Theme-aware axis text */}
                 <XAxis 
                   dataKey="name"
-                  tick={{ fontSize: 12, fill: "#fff" }}
-                  tickLine={{ stroke: '#555' }}
-                  axisLine={{ stroke: '#555' }}
+                  tick={{ fontSize: 12 }}
                 />
                 <YAxis 
                   label={{ 
                     value: 'Bonus Amount ($)', 
                     angle: -90, 
                     position: 'insideLeft',
-                    // White text for dark mode
-                    style: { textAnchor: 'middle', fontSize: 12, fill: "#fff" }
+                    style: { textAnchor: 'middle', fontSize: 12 }
                   }}
-                  // White text for dark mode
-                  tick={{ fontSize: 12, fill: "#fff" }}
-                  tickLine={{ stroke: '#555' }}
-                  axisLine={{ stroke: '#555' }}
+                  tick={{ fontSize: 12 }}
                   tickCount={5}
                   domain={[0, 'dataMax']}
                   allowDecimals={false}
                 />
                 {/* Lighter cursor highlight for dark mode */}
                 <Tooltip 
-                  cursor={{ fill: 'rgba(255, 255, 255, 0.1)' }}
+                  cursor={{ fill: 'rgba(0, 0, 0, 0.1)' }}
                   content={<CustomTooltip formatter={(value) => `$${value}`} />}
                 />
-                {/* White text for legend */}
+                {/* Theme-aware legend */}
                 <Legend 
                   verticalAlign="top" 
-                  height={36} 
-                  formatter={(value) => <span style={{ color: '#fff' }}>{value}</span>}
+                  height={36}
                 />
                 <Bar 
                   dataKey="bonus" 
@@ -604,12 +623,12 @@ const AdminDashboard = () => {
                       fill={CHART_COLORS[index % CHART_COLORS.length]} 
                     />
                   ))}
-                  {/* Brighter label text */}
+                  {/* Theme-aware label colors */}
                   <LabelList 
                     dataKey="bonus" 
                     position="top" 
                     formatter={(value) => `$${value}`}
-                    style={{ fontSize: 12, fill: '#fff', fontWeight: 'bold' }}
+                    style={{ fontSize: 12, fontWeight: 'bold' }}
                   />
                 </Bar>
               </BarChart>
