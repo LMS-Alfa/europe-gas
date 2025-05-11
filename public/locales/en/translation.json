@@ -1,0 +1,101 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "submit": "Submit",
+    "cancel": "Cancel",
+    "save": "Save",
+    "edit": "Edit",
+    "delete": "Delete",
+    "close": "Close",
+    "search": "Search",
+    "filter": "Filter",
+    "actions": "Actions",
+    "status": "Status",
+    "total": "Total",
+    "date": "Date",
+    "amount": "Amount",
+    "name": "Name",
+    "email": "Email",
+    "language": "Language",
+    "selectLanguage": "Select Language",
+    "noData": "No data available",
+    "download": "Download",
+    "unknown": "Unknown",
+    "user": "User",
+    "refreshing": "Refreshing...",
+    "refreshData": "Refresh Data",
+    "initializing": "Initializing"
+  },
+  "navigation": {
+    "dashboard": "Dashboard",
+    "users": "Users",
+    "parts": "Parts",
+    "bonusReports": "Bonus Reports",
+    "settings": "Settings",
+    "logout": "Logout",
+    "login": "Login"
+  },
+  "auth": {
+    "login": "Login",
+    "phone": "Phone Number",
+    "password": "Password",
+    "forgotPassword": "Forgot Password?",
+    "loginSuccess": "Login successful",
+    "loginError": "Login failed"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "summary": "Summary",
+    "partsEntered": "Parts Entered",
+    "activeUsers": "Active Users",
+    "totalBonuses": "Total Bonuses",
+    "currentBonus": "Current Bonus",
+    "paidBonus": "Paid Bonus",
+    "recentActivity": "Recent Activity",
+    "totalParts": "Total Parts",
+    "partsRemaining": "Parts Remaining",
+    "lastUpdated": "Last updated",
+    "databaseReady": "Database Ready",
+    "databaseInitializingMessage": "Setting up database tables... This may take a moment.",
+    "databaseInitializedSuccessfully": "Database tables have been initialized successfully.",
+    "fetchError": "Failed to load dashboard data",
+    "usersOverview": "Users Overview"
+  },
+  "bonusReports": {
+    "title": "Bonus Reports",
+    "totalUsers": "Total Users",
+    "totalPartsEntered": "Total Parts Entered",
+    "totalBonusAmount": "Total Bonus Amount",
+    "quarterlyBonusTrends": "Quarterly Bonus Trends",
+    "bonusDistributionByUser": "Bonus Distribution By User",
+    "pendingVsPaidBonuses": "Pending vs Paid Bonuses",
+    "bonusReportDetails": "Bonus Report Details",
+    "quarter": "Quarter",
+    "user": "User",
+    "partsEntered": "Parts Entered",
+    "bonusAmount": "Bonus Amount",
+    "paymentStatus": {
+      "paid": "Paid",
+      "pending": "Pending"
+    },
+    "paymentDate": "Payment Date",
+    "markAsPaid": "Mark as Paid",
+    "confirmPayment": "Confirm Payment",
+    "exportToExcel": "Export to Excel",
+    "detailedReports": "Detailed Reports"
+  },
+  "enterPart": {
+    "title": "Enter Part",
+    "partSerialNumber": "Part Serial Number",
+    "serialNumberPlaceholder": "e.g. : 0 000 000 000 000",
+    "helper": "Enter the part Serial Number to earn a $1 bonus",
+    "successMessage": "Part {{partId}} entered successfully! $1.00 added to your bonus."
+  },
+  "languages": {
+    "en": "English",
+    "ru": "Russian",
+    "uz": "Uzbek"
+  }
+} 

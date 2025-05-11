@@ -83,7 +83,11 @@ const TableRow = styled(motion.tr)`
   }
 `;
 
-const TableHeadCell = styled.th`
+const TableHeadCell = styled.th.attrs(props => {
+  // Filter out custom props
+  const { isSortable, ...rest } = props;
+  return rest;
+})`
   padding: ${props => props.theme.spacing.md};
   text-align: left;
   font-weight: ${props => props.theme.typography.fontWeight.medium};
@@ -350,7 +354,11 @@ const tableRowVariants = {
 };
 
 // Override Panel styling for DataTable
-const DataTablePanel = styled(Panel)`
+const DataTablePanel = styled(Panel).attrs(props => {
+  // Filter out custom props
+  const { noPadding, compact, ...rest } = props;
+  return rest;
+})`
   width: 100% !important;
   
   @media (max-width: ${props => props.theme.breakpoints.md}) {

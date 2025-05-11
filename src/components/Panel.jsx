@@ -1,54 +1,57 @@
 import styled from 'styled-components';
 import { motion } from 'framer-motion';
 
-const PanelContainer = styled(motion.div)`
+const PanelContainer = styled(motion.div).attrs(props => {
+  // Filter out custom props
+  const { accent, variant, fullHeight, ...rest } = props;
+  return rest;
+})`
   background-color: ${props => props.theme.colors.surface};
-  border-radius: ${props => 
-    props.variant === 'rounded' ? props.theme.borderRadius.xl : 
-    props.variant === 'sharp' ? props.theme.borderRadius.sm : 
-    props.theme.borderRadius.md};
-  box-shadow: ${props => 
-    props.variant === 'elevated' ? props.theme.shadows.lg : 
-    props.variant === 'flat' ? 'none' : 
-    props.theme.shadows.md};
-  overflow: hidden;
-  position: relative;
-  width: 100% !important;
+  border-radius: ${props => props.theme.borderRadius.lg};
+  box-shadow: ${props => props.theme.shadows.sm};
+  transition: box-shadow ${props => props.theme.transition.medium};
+  width: 100%;
   height: ${props => props.fullHeight ? '100%' : 'auto'};
-  border: ${props => 
-    props.variant === 'outlined' ? `1px solid ${props.theme.colors.border}` : 
-    props.variant === 'flat' ? `1px solid ${props.theme.colors.border}` : 
-    'none'};
+  overflow: hidden;
   
-  /* Gradient accent variants */
-  ${props => props.accent === 'primary' && `
-    border-top: 4px solid ${props.theme.colors.primary};
+  /* Accent styling */
+  ${props => props.accent && `
+    border-left: 4px solid ${
+      props.accent === 'primary' ? props.theme.colors.primary :
+      props.accent === 'secondary' ? props.theme.colors.secondary :
+      props.accent === 'success' ? props.theme.colors.success :
+      props.accent === 'error' ? props.theme.colors.error :
+      props.accent === 'warning' ? props.theme.colors.warning :
+      props.accent === 'gradient' ? 'transparent' :
+      props.theme.colors.primary
+    };
+    
+    ${props.accent === 'gradient' && `
+      position: relative;
+      
+      &:before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 4px;
+        background: linear-gradient(to bottom, ${props.theme.colors.primary}, ${props.theme.colors.secondary});
+      }
+    `}
   `}
   
-  ${props => props.accent === 'secondary' && `
-    border-top: 4px solid ${props.theme.colors.secondary};
-  `}
-  
-  ${props => props.accent === 'gradient' && `
-    &::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 4px;
-      background: linear-gradient(90deg, ${props.theme.colors.primary}, ${props.theme.colors.secondary});
+  /* Elevated panel */
+  ${props => props.variant === 'elevated' && `
+    box-shadow: ${props.theme.shadows.md};
+    transition: box-shadow 0.3s ease, transform 0.3s ease;
+    
+    &:hover {
+      box-shadow: ${props.theme.shadows.lg};
     }
   `}
   
-  /* Glass effect for transparent panels */
-  ${props => props.variant === 'glass' && `
-    background-color: rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-  `}
-  
-  /* Dashboard stat panel styles */
+  /* Stat card */
   ${props => props.variant === 'stat' && `
     padding: ${props.theme.spacing.md};
     display: flex;
@@ -88,7 +91,11 @@ const PanelContainer = styled(motion.div)`
   }
 `;
 
-const PanelHeader = styled.div`
+const PanelHeader = styled.div.attrs(props => {
+  // Filter out custom props
+  const { compact, gradient, ...rest } = props;
+  return rest;
+})`
   padding: ${props => props.compact ? `${props.theme.spacing.sm} ${props.theme.spacing.md}` : `${props.theme.spacing.md} ${props.theme.spacing.lg}`};
   border-bottom: 1px solid ${props => props.theme.colors.border};
   display: flex;
@@ -127,7 +134,11 @@ const PanelIcon = styled.span`
   color: ${props => props.theme.colors.primary};
 `;
 
-const PanelContent = styled.div`
+const PanelContent = styled.div.attrs(props => {
+  // Filter out custom props
+  const { noPadding, compact, ...rest } = props;
+  return rest;
+})`
   padding: ${props => props.noPadding ? '0' : props.compact ? props.theme.spacing.sm : `${props.theme.spacing.lg}`};
   width: 100% !important;
   

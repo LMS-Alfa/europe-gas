@@ -1,7 +1,14 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import styled from 'styled-components';
 import { motion } from 'framer-motion';
-import { getAllUserParts, getAllProfiles, getAllUserBonuses } from '../../utils/api';
+import { 
+  getAllUserParts, 
+  getAllProfiles, 
+  getAllUserBonusesByQuarter, 
+  getBonusesByQuarter,
+  updateBonusPayment,
+  getQuarterlyBonusTrends
+} from '../../utils/api';
 import { downloadElementAsImage, exportReport } from '../../utils/exports';
 import {
   BarChart, Bar, PieChart, Pie, Cell, Tooltip, Legend, 
@@ -9,6 +16,7 @@ import {
   ScatterChart, Scatter, ZAxis, LabelList
 } from 'recharts';
 import { FiDownload, FiFilter, FiRefreshCw, FiBarChart2, FiDollarSign, FiCheckCircle, FiClock } from 'react-icons/fi';
+import  supabase  from '../../utils/supabaseClient';
 
 const Container = styled.div`
   max-width: 1200px;
@@ -202,6 +210,59 @@ const CHART_COLORS = [
 
 const PIE_COLORS = [COLORS.warning, COLORS.success];
 
+// Section component for organizing content
+const Section = styled.section`
+  margin-bottom: ${props => props.theme.spacing.xl};
+`;
+
+// Title component for page headers
+const Title = styled.h1`
+  font-size: 2rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: ${props => props.theme.colors.primary};
+`;
+
+// ButtonGroup for organizing action buttons
+const ButtonGroup = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  gap: ${props => props.theme.spacing.md};
+  margin-top: ${props => props.theme.spacing.lg};
+`;
+
+// Status badge for payment status
+const StatusBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.5rem;
+  border-radius: 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  gap: 0.25rem;
+  background-color: ${props => 
+    props.status === 'Paid' ? `${props.theme.colors.success}20` : 
+    `${props.theme.colors.warning}20`};
+  color: ${props => 
+    props.status === 'Paid' ? props.theme.colors.success : 
+    props.theme.colors.warning};
+`;
+
+// Date picker container for payment date
+const DatePickerContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  margin: 1rem 0;
+  gap: 0.5rem;
+`;
+
+const DateInput = styled.input`
+  padding: ${props => props.theme.spacing.md};
+  border: 1px solid ${props => props.theme.colors.border};
+  border-radius: ${props => props.theme.borderRadius.md};
+  font-size: ${props => props.theme.typography.fontSize.md};
+`;
+
 // Custom tooltip components
 const CustomTooltip = ({ active, payload, label, formatter }) => {
   if (!active || !payload || !payload.length) return null;
@@ -239,362 +300,482 @@ const barChartAnimationProps = {
   transition: { duration: 0.5 }
 };
 
-// Update quarters to include 'All' option
-const quarters = ['All', 'Q1 2025', 'Q4 2024', 'Q3 2024', 'Q2 2024'];
-const statuses = ['All', 'Pending', 'Paid'];
-
-const ChartPlaceholder = styled.div`
-  width: 100%;
-  height: 80%;
-  background-color: ${props => `${props.theme.colors.primary}10`};
-  border-radius: ${props => props.theme.borderRadius.md};
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: ${props => props.theme.colors.text.secondary};
-  font-style: italic;
-`;
-
-const Section = styled.section`
-  margin-bottom: ${props => props.theme.spacing.xl};
-`;
-
-const ButtonGroup = styled.div`
-  display: flex;
-  justify-content: flex-end;
-  gap: ${props => props.theme.spacing.md};
-  margin-top: ${props => props.theme.spacing.lg};
-`;
-
-const Title = styled.h1`
-  font-size: 2rem;
-  font-weight: 600;
-  margin-bottom: 1rem;
-  color: ${props => props.theme.colors.primary};
-`;
-
-// Payment status badge
-const StatusBadge = styled.span`
-  display: inline-flex;
-  align-items: center;
-  padding: 0.25rem 0.5rem;
-  border-radius: 1rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  gap: 0.25rem;
-  background-color: ${props => 
-    props.status === 'Paid' ? `${props.theme.colors.success}20` : 
-    `${props.theme.colors.warning}20`};
-  color: ${props => 
-    props.status === 'Paid' ? props.theme.colors.success : 
-    props.theme.colors.warning};
-`;
-
-// Date picker container for payment date
-const DatePickerContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-  margin: 1rem 0;
-  gap: 0.5rem;
-`;
-
-const DateInput = styled.input`
-  padding: ${props => props.theme.spacing.md};
-  border: 1px solid ${props => props.theme.colors.border};
-  border-radius: ${props => props.theme.borderRadius.md};
-  font-size: ${props => props.theme.typography.fontSize.md};
-`;
+// Update quarters to include 'All' option dynamically
+const getRecentQuarters = (data = []) => {
+  const allQuarters = new Set();
+  allQuarters.add('All');
+  
+  // Add current quarter and the previous 3 quarters as fallback
+  const currentDate = new Date();
+  const currentYear = currentDate.getFullYear();
+  const currentQuarter = Math.floor(currentDate.getMonth() / 3) + 1;
+  
+  // Add current and previous 3 quarters
+  for (let i = 0; i < 4; i++) {
+    let quarter = currentQuarter - i;
+    let year = currentYear;
+    
+    if (quarter <= 0) {
+      quarter += 4;
+      year -= 1;
+    }
+    
+    allQuarters.add(`Q${quarter} ${year}`);
+  }
+  
+  // Add any additional quarters from the data
+  if (Array.isArray(data) && data.length > 0) {
+    data.forEach(item => {
+      if (item.quarter && item.year) {
+        allQuarters.add(`Q${item.quarter} ${item.year}`);
+      }
+    });
+  }
+  
+  // Convert to array and sort by year and quarter (most recent first)
+  return Array.from(allQuarters)
+    .sort((a, b) => {
+      if (a === 'All') return -1;
+      if (b === 'All') return 1;
+      
+      const [aQ, aY] = a.split(' ');
+      const [bQ, bY] = b.split(' ');
+      
+      const aYear = parseInt(aY);
+      const bYear = parseInt(bY);
+      
+      if (aYear !== bYear) {
+        return bYear - aYear; // Most recent year first
+      }
+      
+      const aQuarter = parseInt(aQ.replace('Q', ''));
+      const bQuarter = parseInt(bQ.replace('Q', ''));
+      
+      return bQuarter - aQuarter; // Most recent quarter first
+    });
+};
 
 const BonusReports = () => {
+  const [userBonuses, setUserBonuses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [quarterlyTrendData, setQuarterlyTrendData] = useState([]);
   const [selectedQuarter, setSelectedQuarter] = useState('All');
   const [selectedStatus, setSelectedStatus] = useState('All');
-  const [reportData, setReportData] = useState([]);
-  const [userBonuses, setUserBonuses] = useState([]);
-  const [userParts, setUserParts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [totals, setTotals] = useState({
+    users: 0,
+    parts: 0,
+    bonus: '$0.00'
+  });
+  const [filteredBonuses, setFilteredBonuses] = useState([]);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  
-  // Fetch data on component mount
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Fetch all entered parts
-        const partsData = await getAllUserParts();
-        setUserParts(partsData || []);
-        
-        // Fetch all user bonuses
-        const bonusData = await getAllUserBonuses();
-        setUserBonuses(bonusData || []);
-        
-        setLoading(false);
-      } catch (error) {
-        console.error('Error fetching data:', error);
-        setLoading(false);
-      }
-    };
+  const [availableQuarters, setAvailableQuarters] = useState(['All']);
+
+  // Memoized report data for the details table
+  const reportData = useMemo(() => {
+    console.log("Generating report data from:", filteredBonuses);
     
-    fetchData();
-  }, []);
-  
-  // Process data when bonuses or parts change, or when filters are applied
-  useEffect(() => {
-    generateReportData();
-  }, [userBonuses, userParts, selectedQuarter, selectedStatus]);
-  
-  const generateReportData = () => {
-    if (userBonuses.length === 0 || userParts.length === 0) return;
+    if (!filteredBonuses || !Array.isArray(filteredBonuses) || filteredBonuses.length === 0) {
+      return [];
+    }
     
-    console.log('Processing bonus data with:', { 
-      userBonusesCount: userBonuses.length, 
-      userPartsCount: userParts.length 
-    });
-    
-    // Group parts by user and quarter
-    const userPartsByQuarter = {};
-    
-    userParts.forEach(part => {
-      if (!part.user_id) return;
+    const data = filteredBonuses.map(bonus => {
+      console.log("Processing bonus item details:", bonus);
       
-      // Get quarter from part date
-      const date = new Date(part.created_at);
-      const quarter = `Q${Math.ceil((date.getMonth() + 1) / 3)} ${date.getFullYear()}`;
+      // Handle potentially missing user data
+      const userName = bonus.userName || 'Unknown User';
+      const userId = bonus.userId || 'unknown';
+      const email = bonus.email || 'N/A';
       
-      const key = `${part.user_id}_${quarter}`;
+      // Ensure quarter information is available
+      const quarterLabel = bonus.quarterLabel || `Q${bonus.quarter || '?'} ${bonus.year || '?'}`;
+      const quarterNum = bonus.quarter || 0;
+      const year = bonus.year || new Date().getFullYear();
       
-      if (!userPartsByQuarter[key]) {
-        // Get user name from related profile data
-        let userName = 'Unknown User';
-        if (part.profiles) {
-          userName = `${part.profiles.firstName || ''} ${part.profiles.lastName || ''}`.trim();
-        }
-        
-        userPartsByQuarter[key] = {
-          userId: part.user_id,
-          userName,
-          quarter,
-          count: 0,
-          parts: []
-        };
+      // Ensure partCount is a number
+      const partCount = typeof bonus.partCount === 'number' ? bonus.partCount : 0;
+      
+      // Ensure bonusAmount is consistently a formatted string
+      let bonusAmount = '$0.00';
+      if (typeof bonus.bonusAmount === 'number') {
+        bonusAmount = `$${bonus.bonusAmount.toFixed(2)}`;
+      } else if (typeof bonus.bonusAmount === 'string') {
+        // If already a string but doesn't have $ prefix, add it
+        bonusAmount = bonus.bonusAmount.startsWith('$') 
+          ? bonus.bonusAmount 
+          : `$${bonus.bonusAmount}`;
       }
       
-      userPartsByQuarter[key].count++;
-      userPartsByQuarter[key].parts.push(part);
-    });
-    
-    console.log('Generated user parts by quarter:', userPartsByQuarter);
-    
-    // Generate report data
-    const report = Object.values(userPartsByQuarter).map(entry => {
-      // Find user in bonuses data
-      const userBonus = userBonuses.find(bonus => bonus.userId === entry.userId);
+      // Ensure payment status has a valid value
+      const paymentStatus = bonus.paymentStatus || 'pending';
+      
+      // Format payment date if available
+      const paymentDate = bonus.paymentDate 
+        ? new Date(bonus.paymentDate).toLocaleDateString() 
+        : '-';
       
       return {
-        id: `${entry.userId}_${entry.quarter}`,
-        user: entry.userName,
-        email: userBonus?.email || 'N/A',
-        quarter: entry.quarter,
-        partsEntered: entry.count,
-        bonusAmount: `$${entry.count}`, // $1 per part
-        status: 'Pending', // All bonuses are pending for now
-        paid: false,
-        paymentDate: null
+        id: `${userId}_${quarterNum}_${year}`,
+        user: userName,
+        userName: userName, // Add this explicitly for consistency
+        userId: userId,
+        email: email,
+        quarter: quarterLabel,
+        quarterNum: quarterNum,
+        year: year,
+        partsEntered: partCount,
+        bonusAmount: bonusAmount,
+        status: paymentStatus,
+        paymentStatus: paymentStatus, // Add this explicitly for consistency
+        paymentDate: paymentDate
       };
     });
     
-    console.log('Generated report data:', report);
+    console.log("Generated report data:", data);
+    return data;
+  }, [filteredBonuses]);
+
+  // Update available quarters when userBonuses changes
+  useEffect(() => {
+    if (userBonuses && userBonuses.length > 0) {
+      const quarters = new Set(['All']);
+      
+      userBonuses.forEach(bonus => {
+        if (bonus.quarterLabel) {
+          quarters.add(bonus.quarterLabel);
+        }
+      });
+      
+      // Convert to array and sort (most recent first)
+      const sortedQuarters = Array.from(quarters)
+        .sort((a, b) => {
+          if (a === 'All') return -1;
+          if (b === 'All') return 1;
+          
+          // Extract year and quarter
+          const [aQ, aY] = a.split(' ');
+          const [bQ, bY] = b.split(' ');
+          
+          if (aY !== bY) return parseInt(bY) - parseInt(aY);
+          return parseInt(bQ.replace('Q', '')) - parseInt(aQ.replace('Q', ''));
+        });
+      
+      setAvailableQuarters(sortedQuarters);
+    }
+  }, [userBonuses]);
+
+  // Fetch data on component mount
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  // Fetch all bonus data
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      
+      // Get all user bonuses by quarter
+      const quarterlyBonuses = await getAllUserBonusesByQuarter();
+      console.log('Fetched quarterly bonuses:', quarterlyBonuses);
+      
+      // Add fallback data if no quarters found
+      if (!quarterlyBonuses || quarterlyBonuses.length === 0) {
+        console.warn('No quarterly bonuses found, check if the enteredparts table has data');
+        
+        // Try to get basic user data anyway for the UI
+        const { data: users } = await supabase
+          .from('profiles')
+          .select('id, firstName, lastName, email, role');
+          
+        if (users && users.length > 0) {
+          console.log(`Found ${users.length} users to display as fallback`);
+          
+          // Create empty quarters for users at least
+          const currentDate = new Date();
+          const currentQuarter = getQuarterFromDate(currentDate);
+          const currentYear = currentDate.getFullYear();
+          
+          const fallbackBonuses = users.map(user => ({
+            userId: user.id,
+            userName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Unknown User',
+            email: user.email || 'N/A',
+            quarter: currentQuarter,
+            year: currentYear,
+            quarterLabel: `Q${currentQuarter} ${currentYear}`,
+            partCount: 0,
+            bonusAmount: 0,
+            paymentStatus: 'pending',
+            paymentDate: null,
+          parts: []
+          }));
+          
+          console.log('Created fallback data:', fallbackBonuses);
+          setUserBonuses(fallbackBonuses);
+          
+          // Apply existing filters if any
+          if (selectedQuarter !== 'All' || selectedStatus !== 'All') {
+            applyFilters(fallbackBonuses);
+          } else {
+            setFilteredBonuses(fallbackBonuses);
+            calculateTotals(fallbackBonuses);
+          }
+        }
+      } else {
+        // Log the structure of the first bonus object to understand its format
+        if (quarterlyBonuses.length > 0) {
+          console.log('Sample bonus object structure:', JSON.stringify(quarterlyBonuses[0], null, 2));
+        }
+        
+        setUserBonuses(quarterlyBonuses);
+        
+        // Apply existing filters if any
+        if (selectedQuarter !== 'All' || selectedStatus !== 'All') {
+          applyFilters(quarterlyBonuses);
+        } else {
+          setFilteredBonuses(quarterlyBonuses);
+          calculateTotals(quarterlyBonuses);
+        }
+      }
+      
+      // Get quarterly trend data
+      const trendData = await getQuarterlyBonusTrends();
+      console.log('Fetched quarterly trend data:', trendData);
+      setQuarterlyTrendData(trendData);
+      
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      setLoading(false);
+      // Show error notification to user
+      alert('Error loading bonus data. Check console for details.');
+    }
+  };
+  
+  // Extract filter logic to a separate function so it can be reused
+  const applyFilters = (data) => {
+    let filtered = [...data];
+    console.log('Applying filters to', filtered.length, 'records');
     
-    // Apply filters
-    let filteredData = report;
-    
+    // Filter by quarter
     if (selectedQuarter !== 'All') {
-      filteredData = filteredData.filter(item => item.quarter === selectedQuarter);
+      const [qLabel, year] = selectedQuarter.split(' ');
+      const quarter = parseInt(qLabel.replace('Q', ''));
+      console.log(`Filtering for quarter ${quarter} and year ${year}`);
+      
+      filtered = filtered.filter(bonus => {
+        // Match using either quarterLabel or quarter+year
+        if (bonus.quarterLabel === selectedQuarter) return true;
+        
+        const quarterMatch = bonus.quarter === quarter;
+        const yearMatch = bonus.year && bonus.year.toString() === year;
+        return quarterMatch && yearMatch;
+      });
     }
     
+    // Filter by status
     if (selectedStatus !== 'All') {
-      filteredData = filteredData.filter(item => 
-        selectedStatus === 'Paid' ? item.paid : !item.paid
-      );
+      const status = selectedStatus.toLowerCase();
+      filtered = filtered.filter(bonus => {
+        const statusMatch = 
+          bonus.paymentStatus?.toLowerCase() === status || 
+          (status === 'paid' && bonus.paymentStatus === 'Paid') ||
+          (status === 'pending' && bonus.paymentStatus === 'Pending');
+        return statusMatch;
+      });
     }
     
-    console.log('Filtered report data:', filteredData);
-    setReportData(filteredData);
+    console.log(`After all filtering: ${filtered.length} records remain`);
+    setFilteredBonuses(filtered);
+    calculateTotals(filtered);
   };
   
+  // Handle filter changes
   const handleFilter = () => {
-    generateReportData();
+    applyFilters(userBonuses);
   };
   
-  // Enhanced function to handle marking a bonus as paid
+  // Handle marking a bonus as paid
   const handleMarkAsPaid = (item) => {
-    setSelectedPayment(item);
+    console.log('Marking as paid:', item);
+    setSelectedPayment({
+      id: item.id,
+      user: item.user,
+      userId: item.userId,
+      quarter: item.quarter,
+      quarterNum: item.quarterNum,
+      year: item.year,
+      bonusAmount: item.bonusAmount
+    });
     setShowPaymentModal(true);
   };
   
-  // Function to confirm payment with date
-  const confirmPayment = () => {
-    // In a real implementation, this would update a bonus_payments table
-    // For now, just update the UI state
-    const updatedReportData = reportData.map(report => {
-      if (report.id === selectedPayment.id) {
-        return { 
-          ...report, 
-          status: 'Paid',
-          paid: true,
-          paymentDate
-        };
-      }
-      return report;
-    });
-    
-    setReportData(updatedReportData);
-    
-    // Display a notification
-    alert(`Marked bonus payment for ${selectedPayment.user} as paid: ${selectedPayment.bonusAmount} on ${paymentDate}`);
-    
-    // In a real implementation, we would call createBonusPayment here
-    console.log('Would create bonus payment record for:', {
-      ...selectedPayment,
+  // Confirm payment
+  const confirmPayment = async () => {
+    try {
+      if (!selectedPayment) return;
+      
+      // Extract bonus amount as a number
+      const amount = typeof selectedPayment.bonusAmount === 'string'
+        ? parseFloat(selectedPayment.bonusAmount.replace(/[$,]/g, ''))
+        : (typeof selectedPayment.bonusAmount === 'number' ? selectedPayment.bonusAmount : 0);
+      
+      console.log('Updating payment for:', selectedPayment);
+      
+      // Update payment status
+      await updateBonusPayment({
+        userId: selectedPayment.userId,
+        quarter: selectedPayment.quarterNum,
+        year: parseInt(selectedPayment.year),
+        amount,
+        status: 'paid',
       paymentDate
     });
     
-    // Reset modal state
+      // Close modal
     setShowPaymentModal(false);
     setSelectedPayment(null);
+      
+      // Refresh all data to update charts
+      await fetchData();
+      
+      // Re-apply current filters
+      handleFilter();
+      
+    } catch (error) {
+      console.error('Error updating payment:', error);
+      alert(`Failed to update payment: ${error.message}`);
+    }
   };
   
-  // Function to cancel payment
+  // Cancel payment modal
   const cancelPayment = () => {
     setShowPaymentModal(false);
     setSelectedPayment(null);
   };
   
-  const calculateTotals = () => {
-    const totalUsers = new Set(reportData.map(item => item.user)).size;
-    const totalParts = reportData.reduce((sum, item) => sum + item.partsEntered, 0);
-    const totalBonus = reportData.reduce((sum, item) => sum + parseInt(item.bonusAmount.replace('$', '') || 0), 0);
-    
-    return {
-      users: totalUsers,
-      parts: totalParts,
-      bonus: `$${totalBonus}`,
-    };
-  };
-  
-  const totals = calculateTotals();
-  
-  // Download chart using the utility
-  const handleChartDownload = useCallback((chartId, fileName) => {
-    downloadElementAsImage(chartId, fileName);
-  }, []);
-  
-  // Handle exporting the report as CSV
-  const handleExportReport = useCallback(() => {
-    if (reportData.length === 0) {
-      alert('No data to export');
+  // Calculate totals from filtered bonuses
+  const calculateTotals = (bonuses) => {
+    if (!bonuses || !Array.isArray(bonuses)) {
+      setTotals({
+        users: 0,
+        parts: 0,
+        bonus: '$0.00'
+      });
       return;
     }
     
-    // Format report data for CSV
-    const formattedData = reportData.map(item => ({
-      User: item.user,
-      Email: item.email,
-      Quarter: item.quarter,
-      'Parts Entered': item.partsEntered,
-      'Bonus Amount': item.bonusAmount,
-      Status: item.status
-    }));
+    // Count unique users
+    const uniqueUsers = new Set();
+    bonuses.forEach(bonus => uniqueUsers.add(bonus.userId));
     
-    // Export using utility
-    exportReport(
-      formattedData, 
-      'bonus', 
-      `${selectedQuarter !== 'All' ? selectedQuarter : 'all_quarters'}_${selectedStatus.toLowerCase()}`
-    );
-  }, [reportData, selectedQuarter, selectedStatus]);
+    // Sum parts
+    const totalParts = bonuses.reduce((sum, bonus) => sum + (bonus.partCount || 0), 0);
+    
+    // Handle both string and number types for bonusAmount
+    let totalBonus = 0;
+    bonuses.forEach(bonus => {
+      if (typeof bonus.bonusAmount === 'string') {
+        // Remove $ and commas before parsing
+        const cleanAmount = bonus.bonusAmount.replace(/[$,]/g, '');
+        const amount = parseFloat(cleanAmount || '0');
+        totalBonus += isNaN(amount) ? 0 : amount;
+      } else if (typeof bonus.bonusAmount === 'number') {
+        totalBonus += bonus.bonusAmount;
+      }
+    });
+    
+    setTotals({
+      users: uniqueUsers.size,
+      parts: totalParts,
+      bonus: `$${totalBonus.toFixed(2)}`
+    });
+  };
+  
+  // Download chart using the utility
+  const handleChartDownload = useCallback((chartId, fileName) => {
+    console.log(`Attempting to download chart with ID: ${chartId}`);
+    
+    // Small delay to ensure chart rendering is complete
+    setTimeout(() => {
+    downloadElementAsImage(chartId, fileName);
+    }, 100);
+  }, []);
   
   // Memoized data preparation for better performance
   const barChartData = useMemo(() => {
-    if (!reportData || reportData.length === 0) return [];
+    if (!filteredBonuses || filteredBonuses.length === 0) return [];
+    
+    console.log('Generating bar chart data from:', filteredBonuses);
     
     // Group by user and calculate total bonuses per user
     const userTotals = {};
     
-    reportData.forEach(item => {
-      if (!userTotals[item.user]) {
-        userTotals[item.user] = 0;
+    filteredBonuses.forEach(item => {
+      // Use userName property instead of user
+      const userName = item.userName || 'Unknown User';
+      
+      if (!userTotals[userName]) {
+        userTotals[userName] = 0;
       }
-      userTotals[item.user] += parseFloat(item.bonusAmount.replace('$', ''));
+      
+      // Handle both string and number types for bonusAmount
+      const amount = typeof item.bonusAmount === 'string' 
+        ? parseFloat(item.bonusAmount.replace(/[$,]/g, '')) 
+        : (typeof item.bonusAmount === 'number' ? item.bonusAmount : 0);
+      
+      userTotals[userName] += amount;
     });
     
+    console.log('User totals for bar chart:', userTotals);
+    
     // Convert to array format for the chart
-    return Object.keys(userTotals)
+    const chartData = Object.keys(userTotals)
       .map(user => ({
         name: user,
         bonus: userTotals[user]
       }))
       .sort((a, b) => b.bonus - a.bonus)
       .slice(0, 8); // Show top 8 users
-  }, [reportData]);
+    
+    console.log('Final bar chart data:', chartData);
+    return chartData;
+  }, [filteredBonuses]);
   
   const pieChartData = useMemo(() => {
-    if (!reportData || reportData.length === 0) return [];
+    if (!filteredBonuses || filteredBonuses.length === 0) return [];
+    
+    console.log('Generating pie chart data from:', filteredBonuses);
     
     let pendingTotal = 0;
     let paidTotal = 0;
     
-    reportData.forEach(item => {
-      const amount = parseFloat(item.bonusAmount.replace('$', ''));
-      if (item.paid) {
+    filteredBonuses.forEach(item => {
+      // Handle both string and number types for bonusAmount
+      const amount = typeof item.bonusAmount === 'string' 
+        ? parseFloat(item.bonusAmount.replace(/[$,]/g, '')) 
+        : (typeof item.bonusAmount === 'number' ? item.bonusAmount : 0);
+      
+      // Check for paid status with case insensitivity
+      const isPaid = item.paymentStatus === 'paid' || 
+                     item.paymentStatus === 'Paid' || 
+                     (item.status && (item.status === 'paid' || item.status === 'Paid'));
+      
+      if (isPaid) {
         paidTotal += amount;
       } else {
         pendingTotal += amount;
       }
     });
     
-    return [
+    const chartData = [
       { name: 'Pending', value: pendingTotal },
       { name: 'Paid', value: paidTotal }
     ];
-  }, [reportData]);
-  
-  const quarterlyTrendData = useMemo(() => {
-    if (userParts.length === 0) return [];
     
-    // Identify all quarters from parts data
-    const quarterData = {};
-    
-    userParts.forEach(part => {
-      if (!part.created_at) return;
-      
-      const date = new Date(part.created_at);
-      const quarter = `Q${Math.ceil((date.getMonth() + 1) / 3)} ${date.getFullYear()}`;
-      
-      if (!quarterData[quarter]) {
-        quarterData[quarter] = {
-          quarter,
-          partsCount: 0,
-          bonusTotal: 0
-        };
-      }
-      
-      quarterData[quarter].partsCount++;
-      quarterData[quarter].bonusTotal++; // $1 per part
-    });
-    
-    // Convert to array and sort by date
-    return Object.values(quarterData)
-      .sort((a, b) => {
-        // Extract year and quarter number for sorting
-        const [, qNumA, yearA] = a.quarter.match(/Q(\d+) (\d+)/);
-        const [, qNumB, yearB] = b.quarter.match(/Q(\d+) (\d+)/);
-        
-        // Compare years first, then quarters
-        if (yearA !== yearB) return Number(yearA) - Number(yearB);
-        return Number(qNumA) - Number(qNumB);
-      });
-  }, [userParts]);
+    console.log('Final pie chart data:', chartData);
+    return chartData;
+  }, [filteredBonuses]);
   
   const scatterData = useMemo(() => {
     if (!userBonuses || userBonuses.length === 0) return [];
@@ -607,6 +788,32 @@ const BonusReports = () => {
       z: user.totalParts / Math.max(1, userBonuses.length) * 10, // z-axis (bubble size): relative proportion
     }));
   }, [userBonuses]);
+  
+  // Handle exporting the report as Excel
+  const handleExportReport = useCallback(() => {
+    if (reportData.length === 0) {
+      alert('No data to export');
+      return;
+    }
+    
+    // Format report data for Excel with proper column structure
+    const formattedData = reportData.map(item => ({
+      User: item.user || 'Unknown User',
+      Email: item.email || 'N/A',
+      Quarter: item.quarter || 'N/A',
+      'Parts Entered': item.partsEntered || 0,
+      'Bonus Amount': item.bonusAmount || '$0.00',
+      Status: (item.status === 'paid' || item.status === 'Paid') ? 'Paid' : 'Pending',
+      'Payment Date': item.paymentDate || '-'
+    }));
+    
+    // Export using utility
+    exportReport(
+      formattedData, 
+      'bonus', 
+      `${selectedQuarter !== 'All' ? selectedQuarter : 'all_quarters'}_${selectedStatus.toLowerCase()}`
+    );
+  }, [reportData, selectedQuarter, selectedStatus]);
   
   return (
     <Container>
@@ -683,7 +890,7 @@ const BonusReports = () => {
               value={selectedQuarter} 
               onChange={(e) => setSelectedQuarter(e.target.value)}
             >
-              {quarters.map(quarter => (
+              {availableQuarters.map(quarter => (
                 <option key={quarter} value={quarter}>{quarter}</option>
               ))}
             </Select>
@@ -692,7 +899,7 @@ const BonusReports = () => {
               value={selectedStatus} 
               onChange={(e) => setSelectedStatus(e.target.value)}
             >
-              {statuses.map(status => (
+              {['All', 'Pending', 'Paid'].map(status => (
                 <option key={status} value={status}>{status}</option>
               ))}
             </Select>
@@ -717,7 +924,7 @@ const BonusReports = () => {
             <SummaryValue>{loading ? 'Loading...' : totals.parts}</SummaryValue>
           </SummaryCard>
           
-          <SummaryCard color={parseFloat(totals.bonus.replace('$', '')) > 0 ? COLORS.success : '#bdbdbd'}>
+          <SummaryCard color={typeof totals.bonus === 'string' && parseFloat(totals.bonus.replace(/[$,]/g, '') || '0') > 0 ? COLORS.success : '#bdbdbd'}>
             <SummaryTitle>Total Bonus Amount</SummaryTitle>
             <SummaryValue>{loading ? 'Loading...' : totals.bonus}</SummaryValue>
           </SummaryCard>
@@ -739,9 +946,8 @@ const BonusReports = () => {
             {loading ? (
               <p>Loading chart data...</p>
             ) : quarterlyTrendData.length > 1 ? (
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" id="quarterly-chart">
                 <LineChart
-                  id="quarterly-chart"
                   data={quarterlyTrendData}
                   margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
                 >
@@ -836,9 +1042,8 @@ const BonusReports = () => {
             {loading ? (
               <p>Loading chart data...</p>
             ) : barChartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" id="bar-chart">
                 <BarChart
-                  id="bar-chart"
                   data={barChartData}
                   margin={{ top: 20, right: 30, left: 20, bottom: 70 }}
                   barSize={30}
@@ -919,9 +1124,9 @@ const BonusReports = () => {
           <ChartContainer>
             {loading ? (
               <p>Loading chart data...</p>
-            ) : reportData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart id="pie-chart">
+            ) : filteredBonuses.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%" id="pie-chart">
+                <PieChart>
                   <Pie
                     data={pieChartData}
                     cx="50%"
@@ -970,7 +1175,7 @@ const BonusReports = () => {
         
         {loading ? (
           <p>Loading report data...</p>
-        ) : reportData.length > 0 ? (
+        ) : filteredBonuses.length > 0 ? (
           <ReportTable>
             <TableHead>
               <tr>
@@ -987,14 +1192,14 @@ const BonusReports = () => {
             <TableBody>
               {reportData.map(item => (
                 <tr key={item.id}>
-                  <td>{item.user}</td>
-                  <td>{item.email}</td>
-                  <td>{item.quarter}</td>
-                  <td>{item.partsEntered}</td>
-                  <td>{item.bonusAmount}</td>
+                  <td>{item.user || 'Unknown User'}</td>
+                  <td>{item.email || 'N/A'}</td>
+                  <td>{item.quarter || 'N/A'}</td>
+                  <td>{item.partsEntered || 0}</td>
+                  <td>{item.bonusAmount || '$0.00'}</td>
                   <td>
-                    <StatusBadge status={item.paid ? 'Paid' : 'Pending'}>
-                      {item.paid ? (
+                    <StatusBadge status={item.status === 'paid' || item.status === 'Paid' ? 'Paid' : 'Pending'}>
+                      {item.status === 'paid' || item.status === 'Paid' ? (
                         <><FiCheckCircle size={14} /> Paid</>
                       ) : (
                         <><FiClock size={14} /> Pending</>
@@ -1007,12 +1212,12 @@ const BonusReports = () => {
                       style={{ 
                         padding: '0.25rem 0.5rem',
                         fontSize: '0.875rem',
-                        backgroundColor: item.paid ? '#bdbdbd' : '#4caf50'
+                        backgroundColor: item.status === 'paid' || item.status === 'Paid' ? '#bdbdbd' : '#4caf50'
                       }}
-                      disabled={item.paid}
+                      disabled={item.status === 'paid' || item.status === 'Paid'}
                       onClick={() => handleMarkAsPaid(item)}
                     >
-                      {item.paid ? 'Paid' : 'Mark as Paid'}
+                      {item.status === 'paid' || item.status === 'Paid' ? 'Paid' : 'Mark as Paid'}
                     </Button>
                   </td>
                 </tr>
@@ -1025,10 +1230,17 @@ const BonusReports = () => {
         
         <ButtonGroup>
           <Button 
-            style={{ backgroundColor: '#5c6bc0' }}
+            style={{ 
+              backgroundColor: '#2E7D32', 
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '10px 16px'
+            }}
             onClick={handleExportReport}
           >
-            Export Report
+            <FiDownload size={18} />
+            Export to Excel
           </Button>
         </ButtonGroup>
       </Card>

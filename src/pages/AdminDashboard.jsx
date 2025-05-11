@@ -22,6 +22,7 @@ import {
   BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, 
   ResponsiveContainer, LabelList
 } from 'recharts';
+import { useTranslationWithForceUpdate } from '../hooks/useTranslationWithForceUpdate';
 
 // Styled component for debug information
 const DebugInfo = styled.div`
@@ -165,38 +166,132 @@ const CHART_COLORS = [
   COLORS.purple, COLORS.pink, COLORS.error, COLORS.indigo, COLORS.success
 ];
 
-// Custom tooltip component with improved dark mode styling
-const CustomTooltip = ({ active, payload, label, formatter }) => {
-  if (!active || !payload || !payload.length) return null;
-  
-  return (
-    <div 
-      style={{ 
-        background: 'var(--tooltip-bg, rgba(97, 97, 97, 0.9))', 
-        padding: '10px 14px', 
-        border: '1px solid var(--tooltip-border, #777)',
+// Custom tooltip for charts with i18n
+const CustomTooltip = ({ active, payload, label, formatter, chartTexts }) => {
+  if (active && payload && payload.length) {
+    return (
+      <div style={{
+        backgroundColor: 'white',
+        padding: '10px',
+        border: '1px solid #ccc',
         borderRadius: '4px',
-        boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
-        color: 'var(--tooltip-text, #fff)'
-      }}
-    >
-      <p style={{ margin: '0 0 5px', fontWeight: 'bold' }}>{label}</p>
-      {payload.map((entry, index) => {
-        const formattedValue = formatter ? 
-          formatter(entry.value, entry.name) : 
-          entry.value;
-          
-        return (
-          <p key={index} style={{ margin: '0', color: entry.color }}>
-            {`${entry.name}: ${formattedValue}`}
-          </p>
-        );
-      })}
-    </div>
+        boxShadow: '0 2px 6px rgba(0,0,0,0.1)'
+      }}>
+        <p style={{ 
+          margin: '0 0 5px 0', 
+          fontWeight: 'bold',
+          borderBottom: '1px solid #eee',
+          paddingBottom: '5px'
+        }}>{label}</p>
+        <p style={{ 
+          margin: '0',
+          color: '#666',
+          display: 'flex',
+          alignItems: 'center'
+        }}>
+          <span style={{ 
+            display: 'inline-block',
+            width: '10px',
+            height: '10px',
+            marginRight: '5px',
+            backgroundColor: payload[0].color || '#4a6cf7',
+            borderRadius: '50%'
+          }}></span>
+          <span style={{ fontWeight: 'bold' }}>{chartTexts.bonusAmount}: </span> 
+          <span style={{ marginLeft: '4px' }}>{formatter ? formatter(payload[0].value) : payload[0].value}</span>
+        </p>
+      </div>
+    );
+  }
+  return null;
+};
+
+// Chart wrapper component that forces re-render on language change
+const ChartWithLanguage = ({ currentLanguage, chartTexts, bonusChartData, handleChartDownload, formatCurrency }) => {
+  // Currency formatter that just returns the number without the currency symbol
+  const formatNumberOnly = (value) => {
+    return new Intl.NumberFormat(currentLanguage).format(value || 0);
+  };
+
+  // Currency formatter with dollar sign for displaying values
+  const formatShortCurrency = (value) => {
+    return `$${formatNumberOnly(value)}`;
+  };
+
+  // Define colors for each bar
+  const CHART_COLORS = [
+    "#4a6cf7", // Blue
+    "#2ecc71", // Green
+    "#f39c12", // Orange
+    "#9b59b6", // Purple
+    "#e84393", // Pink
+    "#e74c3c", // Red
+    "#5c6bc0", // Indigo
+    "#27ae60"  // Dark Green
+  ];
+
+  return (
+    <ChartContainer id="admin-bonus-chart">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart
+          data={bonusChartData}
+          margin={{
+            top: 20, right: 30, left: 30, bottom: 40
+          }}
+          barCategoryGap="20%"
+          barGap={4}
+        >
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+          <XAxis 
+            dataKey="name" 
+            tick={{ fontSize: 12 }}
+            tickLine={{ stroke: '#e0e0e0' }}
+            axisLine={{ stroke: '#e0e0e0' }}
+            interval={0}
+            angle={-30}
+            textAnchor="end"
+            height={70}
+          />
+          <YAxis 
+            tickFormatter={formatShortCurrency}
+            tick={{ fontSize: 12 }}
+            tickLine={{ stroke: '#e0e0e0' }}
+            axisLine={{ stroke: '#e0e0e0' }}
+          />
+          <Tooltip 
+            content={<CustomTooltip formatter={formatCurrency} chartTexts={chartTexts} />}
+            cursor={{ fill: 'rgba(0, 0, 0, 0.05)' }}
+          />
+          <Legend 
+            wrapperStyle={{ paddingTop: '10px' }}
+            formatter={() => chartTexts.bonusAmount} 
+          />
+          <Bar 
+            dataKey="bonus" 
+            name={chartTexts.bonusAmount}
+            radius={[4, 4, 0, 0]}
+            barSize={40}
+          >
+            {
+              bonusChartData.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+              ))
+            }
+            <LabelList 
+              dataKey="bonus" 
+              position="top" 
+              formatter={formatShortCurrency} 
+              style={{ fill: '#666', fontSize: 12, fontWeight: 500 }} 
+            />
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </ChartContainer>
   );
 };
 
 const AdminDashboard = () => {
+  const { t, currentLanguage } = useTranslationWithForceUpdate();
   const [loading, setLoading] = useState(true);
   const [dbInitializing, setDbInitializing] = useState(false);
   const [dbInitialized, setDbInitialized] = useState(false);
@@ -215,14 +310,14 @@ const AdminDashboard = () => {
   const [debugData, setDebugData] = useState({});
   const [bonusData, setBonusData] = useState([]);
 
-  // Format numbers for display
+  // Format numbers for display with proper locale
   const formatNumber = (num) => {
-    return new Intl.NumberFormat('en-US').format(num || 0);
+    return new Intl.NumberFormat(currentLanguage).format(num || 0);
   };
 
-  // Format currency for display
+  // Format currency for display with proper locale
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount || 0);
+    return new Intl.NumberFormat(currentLanguage, { style: 'currency', currency: 'USD' }).format(amount || 0);
   };
   
   // Function to initialize database tables
@@ -235,106 +330,70 @@ const AdminDashboard = () => {
       setDbInitialized(result);
       setDebugData(prevData => ({
         ...prevData,
-        databaseInitialized: result
+        dbInit: result
       }));
       return result;
     } catch (err) {
-      console.error('Error initializing database:', err);
-      setError(`Failed to initialize database: ${err.message}`);
+      console.error('Database initialization error:', err);
+      setError(`${t('common.error')}: ${err.message}`);
       setDebugData(prevData => ({
         ...prevData,
-        databaseInitError: err.message
+        dbInitError: err.message
       }));
       return false;
     } finally {
       setDbInitializing(false);
     }
   };
-
-  // Function to fetch all dashboard data
+  
+  // Fetch all dashboard data
   const fetchDashboardData = async () => {
     setLoading(true);
     setError(null);
-    console.log('Starting dashboard data fetch...');
     
     try {
-      // Get dashboard stats
-      console.log('Fetching dashboard stats...');
+      // Fetch dashboard stats
       const stats = await getDashboardStats();
+      console.log('Dashboard stats:', stats);
       
-      // Get count of remaining parts (not entered yet)
-      const remainingPartsCount = await getPartsRemainingCount();
+      // Get parts remaining count
+      const remainingParts = await getPartsRemainingCount();
+      console.log('Remaining parts:', remainingParts);
       
-      console.log('Dashboard stats received:', stats);
-      console.log('Parts remaining count:', remainingPartsCount);
-      
+      // Combine the data
       setDashboardStats({
         ...stats,
-        partsRemaining: remainingPartsCount
+        partsRemaining: remainingParts,
+        error: null
       });
       
-      // Store debug data
-      setDebugData(prevData => ({
-        ...prevData,
-        dashboardStats: {
-          ...stats,
-          partsRemaining: remainingPartsCount
-        }
-      }));
-      
-      // Check for errors
-      if (stats.error) {
-        setError(`Database error: ${stats.error}`);
-        console.error('Stats error:', stats.error);
-      }
-      
       // Get recent activity
-      console.log('Fetching recent activity...');
-      try {
-        const activity = await getRecentActivity(10);
-        console.log('Recent activity received:', activity);
-        setRecentActivity(activity || []);
-        setDebugData(prevData => ({
-          ...prevData,
-          recentActivity: { count: activity?.length || 0, data: activity }
-        }));
-      } catch (activityErr) {
-        console.error('Error fetching activity:', activityErr);
-        setDebugData(prevData => ({
-          ...prevData,
-          activityError: activityErr.message
-        }));
-      }
+      const activities = await getRecentActivity();
+      setRecentActivity(activities);
       
-      // Get all users and their entries/bonus data
-      console.log('Fetching users and entry/bonus data...');
+      // Get users
       try {
-        // Fetch user profiles and entries/bonus data in parallel for efficiency
-        const [allUsers, entriesAndBonusData] = await Promise.all([
-          getAllProfiles(),
-          getAllUsersEntriesAndBonus()
-        ]);
-        
-        console.log('User profiles received:', allUsers);
-        console.log('Entries and bonus data received:', entriesAndBonusData);
-        
-        // Transform user data to include entries and bonus information
-        const formattedUsers = allUsers ? allUsers.map(user => {
-          // Get entries and bonus data for this user
-          const userId = user.id;
-          const entriesBonus = entriesAndBonusData[userId] || { entriesCount: 0, bonusAmount: '$0.00' };
+        const allUsers = await getAllProfiles();
+        const entriesAndBonusData = await getAllUsersEntriesAndBonus();
+
+        // Format users for display
+        const formattedUsers = allUsers?.map(user => {
+          // Find user entries and bonus from the entries data
+          const userEntryInfo = entriesAndBonusData?.find(entry => entry.userId === user.id);
           
           return {
-            id: userId,
-            name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
-            email: user.email,
-            phone: user.phone,
-            entries: entriesBonus.entriesCount,
-            bonus: entriesBonus.bonusAmount
+            id: user.id,
+            name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.name || t('common.noData'),
+            email: user.email || t('common.noData'),
+            phone: user.phone || t('common.noData'),
+            entries: userEntryInfo?.entriesCount || 0,
+            bonus: formatCurrency(userEntryInfo?.bonusAmount || 0)
           };
-        }) : [];
+        }) || [];
         
         setUsers(formattedUsers);
+        
+        // Update debug data
         setDebugData(prevData => ({
           ...prevData,
           users: { count: allUsers?.length || 0, sample: allUsers?.slice(0, 2) },
@@ -355,7 +414,7 @@ const AdminDashboard = () => {
       setLastRefresh(new Date());
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
-      setError(`Failed to load dashboard data: ${err.message}`);
+      setError(`${t('dashboard.fetchError')}: ${err.message}`);
       setDebugData(prevData => ({
         ...prevData,
         globalError: err.message,
@@ -375,37 +434,45 @@ const AdminDashboard = () => {
     
     setup();
   }, []);
+  
+  // Re-fetch when language changes
+  useEffect(() => {
+    if (!loading) {
+      console.log("Language changed to:", currentLanguage, "- Refreshing dashboard data");
+      fetchDashboardData();
+    }
+  }, [currentLanguage]);
 
   // Convert dashboard stats to stat card format
   const adminStats = [
     {
       icon: <FiTool size={24} />,
-      label: 'Total Parts',
+      label: t('dashboard.totalParts'),
       value: loading ? '...' : formatNumber(dashboardStats.totalParts),
       trend: !loading && dashboardStats.error ? -1 : undefined,
-      trendLabel: !loading && dashboardStats.error ? 'Error' : undefined,
+      trendLabel: !loading && dashboardStats.error ? t('common.error') : undefined,
       iconColor: dashboardStats.error ? 'error' : 'primary'
     },
     {
       icon: <FiClipboard size={24} />,
-      label: 'Parts Remaining',
+      label: t('dashboard.partsRemaining'),
       value: loading ? '...' : formatNumber(dashboardStats.partsRemaining),
       iconColor: dashboardStats.error ? 'error' : 'warning'
     },
     {
       icon: <FiUsers size={24} />,
-      label: 'Active Users',
+      label: t('dashboard.activeUsers'),
       value: loading ? '...' : formatNumber(dashboardStats.totalUsers),
       trend: !loading && dashboardStats.error ? -1 : undefined,
-      trendLabel: !loading && dashboardStats.error ? 'Error' : undefined,
+      trendLabel: !loading && dashboardStats.error ? t('common.error') : undefined,
       iconColor: dashboardStats.error ? 'error' : 'secondary'
     },
     {
       icon: <FiDollarSign size={24} />,
-      label: 'Total Bonuses',
+      label: t('dashboard.totalBonuses'),
       value: loading ? '...' : formatCurrency(dashboardStats.totalBonuses),
       trend: !loading && dashboardStats.error ? -1 : undefined,
-      trendLabel: !loading && dashboardStats.error ? 'Error' : undefined,
+      trendLabel: !loading && dashboardStats.error ? t('common.error') : undefined,
       gradientValue: !dashboardStats.error
     }
   ];
@@ -416,28 +483,28 @@ const AdminDashboard = () => {
         .filter(activity => activity.type === 'part_entry')
         .map((activity, index) => ({
           id: activity.id,
-          partId: activity.title.split(' entered ')[1] || 'Unknown Part',
-          date: new Date(activity.timestamp).toLocaleDateString(),
-          user: activity.title.split(' entered ')[0] || 'Unknown User',
+          partId: activity.title.split(' entered ')[1] || t('common.unknown'),
+          date: new Date(activity.timestamp).toLocaleDateString(currentLanguage),
+          user: activity.title.split(' entered ')[0] || t('common.unknown'),
           status: 'completed'
         }))
     : [];
   
   // User table columns with actions
   const userColumns = [
-    { key: 'name', title: 'Name' },
-    { key: 'email', title: 'Email' },
-    { key: 'phone', title: 'Phone' },
-    { key: 'entries', title: 'Entries' },
-    { key: 'bonus', title: 'Bonus' }
+    { key: 'name', title: t('common.name') },
+    { key: 'email', title: t('common.email') },
+    { key: 'phone', title: t('auth.phone') },
+    { key: 'entries', title: t('dashboard.partsEntered') },
+    { key: 'bonus', title: t('bonusReports.bonusAmount') }
   ];
   
   // Parts columns
   const partsColumns = [
-    { key: 'partId', title: 'Part ID' },
-    { key: 'date', title: 'Date' },
-    { key: 'user', title: 'User' },
-    { key: 'status', title: 'Status', type: 'status' }
+    { key: 'partId', title: t('enterPart.partSerialNumber') },
+    { key: 'date', title: t('common.date') },
+    { key: 'user', title: t('common.user') },
+    { key: 'status', title: t('common.status'), type: 'status' }
   ];
   
   // Prepare bonus chart data with memoization for better performance
@@ -461,14 +528,19 @@ const AdminDashboard = () => {
       .sort((a, b) => b.totalBonus - a.totalBonus)
       .slice(0, 5)
       .map(user => ({
-        name: user.userName || 'Unknown User',
+        name: user.userName || t('common.unknown'),
         bonus: user.totalBonus
       }));
     
     console.log('Filtered bonus data for chart (excluding admins):', filteredData);
     return filteredData;
-  }, [bonusData]);
+  }, [bonusData, currentLanguage, t]);
   
+  // Memoize the translated text to ensure consistent language throughout chart
+  const chartTexts = useMemo(() => ({
+    bonusAmount: t('bonusReports.bonusAmount')
+  }), [currentLanguage, t]);
+
   // Download chart using the utility
   const handleChartDownload = useCallback((chartId, fileName) => {
     downloadElementAsImage(chartId, fileName);
@@ -485,8 +557,8 @@ const AdminDashboard = () => {
         <AlertBanner type="info">
           <span className="icon"><FiDatabase size={20} /></span>
           <div>
-            <strong>Database Initialization</strong>
-            <div>Setting up database tables... This may take a moment.</div>
+            <strong>{t('common.initializing')}</strong>
+            <div>{t('dashboard.databaseInitializingMessage')}</div>
           </div>
         </AlertBanner>
       )}
@@ -496,8 +568,8 @@ const AdminDashboard = () => {
         <AlertBanner type="success">
           <span className="icon"><FiDatabase size={20} /></span>
           <div>
-            <strong>Database Ready</strong>
-            <div>Database tables have been initialized successfully.</div>
+            <strong>{t('dashboard.databaseReady')}</strong>
+            <div>{t('dashboard.databaseInitializedSuccessfully')}</div>
           </div>
         </AlertBanner>
       )}
@@ -507,7 +579,7 @@ const AdminDashboard = () => {
         <AlertBanner type="error">
           <span className="icon"><FiAlertTriangle size={20} /></span>
           <div>
-            <strong>Database Error</strong>
+            <strong>{t('common.error')}</strong>
             <div>{error}</div>
           </div>
         </AlertBanner>
@@ -525,7 +597,7 @@ const AdminDashboard = () => {
       {/* Refresh Button and Debug Controls */}
       <Container padding="0.5rem 0" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ fontSize: '0.8rem', color: '#888' }}>
-          Last updated: {lastRefresh.toLocaleTimeString()}
+          {t('dashboard.lastUpdated')}: {lastRefresh.toLocaleTimeString(currentLanguage)}
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <Button 
@@ -535,14 +607,15 @@ const AdminDashboard = () => {
             disabled={loading}
             icon={<FiRefreshCw size={16} />}
           >
-            {loading ? 'Refreshing...' : 'Refresh Data'}
+            {loading ? t('common.refreshing') : t('common.refreshData')}
           </Button>
         </div>
       </Container>
 
       {/* Bonus Distribution Chart with improved styling */}
       <Panel
-        title="User Bonus Distribution"
+        key={`chart-panel-${currentLanguage}`}
+        title={t('bonusReports.bonusDistributionByUser')}
         icon={<FiBarChart2 size={20} />}
         variant="elevated"
         accent="gradient"
@@ -556,7 +629,7 @@ const AdminDashboard = () => {
               style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
             >
               <FiDownload size={16} />
-              Download
+              {t('common.download')}
             </Button>
             <Button 
               onClick={() => window.location.href = '/admin/reports'} 
@@ -564,147 +637,47 @@ const AdminDashboard = () => {
               size="sm"
               icon={<FiFileText size={16} />}
             >
-              Detailed Reports
+              {t('bonusReports.detailedReports')}
             </Button>
           </div>
         }
       >
         {loading ? (
           <Container padding="2rem" style={{ textAlign: 'center' }}>
-            Loading bonus data...
+            {t('common.loading')}
           </Container>
         ) : bonusChartData.length > 0 ? (
-          <ChartContainer id="admin-bonus-chart">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={bonusChartData}
-                margin={{ top: 20, right: 30, left: 20, bottom: 30 }}
-                barSize={36}
-                barGap={3}
-              >
-                {/* Theme-aware grid lines */}
-                <CartesianGrid strokeDasharray="3 3" />
-                {/* Theme-aware axis text */}
-                <XAxis 
-                  dataKey="name"
-                  tick={{ fontSize: 12 }}
-                />
-                <YAxis 
-                  label={{ 
-                    value: 'Bonus Amount ($)', 
-                    angle: -90, 
-                    position: 'insideLeft',
-                    style: { textAnchor: 'middle', fontSize: 12 }
-                  }}
-                  tick={{ fontSize: 12 }}
-                  tickCount={5}
-                  domain={[0, 'dataMax']}
-                  allowDecimals={false}
-                />
-                {/* Lighter cursor highlight for dark mode */}
-                <Tooltip 
-                  cursor={{ fill: 'rgba(0, 0, 0, 0.1)' }}
-                  content={<CustomTooltip formatter={(value) => `$${value}`} />}
-                />
-                {/* Theme-aware legend */}
-                <Legend 
-                  verticalAlign="top" 
-                  height={36}
-                />
-                <Bar 
-                  dataKey="bonus" 
-                  name="Bonus Amount" 
-                  animationDuration={1000}
-                  animationEasing="ease-in-out"
-                >
-                  {bonusChartData.map((entry, index) => (
-                    <Cell 
-                      key={`cell-${index}`} 
-                      fill={CHART_COLORS[index % CHART_COLORS.length]} 
-                    />
-                  ))}
-                  {/* Theme-aware label colors */}
-                  <LabelList 
-                    dataKey="bonus" 
-                    position="top" 
-                    formatter={(value) => `$${value}`}
-                    style={{ fontSize: 12, fontWeight: 'bold' }}
-                  />
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartContainer>
+          <div key={`full-chart-wrapper-${currentLanguage}`}>
+            <ChartWithLanguage 
+              currentLanguage={currentLanguage}
+              chartTexts={chartTexts}
+              bonusChartData={bonusChartData}
+              handleChartDownload={handleChartDownload}
+              formatCurrency={formatCurrency}
+            />
+          </div>
         ) : (
-          <NoDataMessage>
-            <FiBarChart2 size={48} />
-            <p>No bonus data available</p>
-          </NoDataMessage>
+          <Container padding="2rem" style={{ textAlign: 'center' }}>
+            {t('common.noData')}
+          </Container>
         )}
       </Panel>
 
-      {/* Main content grid */}
-      <Container grid gridCols={2} padding="0" gap="1rem">
-        {/* User management panel */}
-        <Container padding="0" style={{ gridColumn: 'span 2' }}>
-          <Panel
-            title="User Management"
-            icon={<FiUserCheck size={20} />}
-            variant="elevated"
-            gradientHeader
-            compact
-            actions={
-              <div>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  icon={<FiUsers size={16} />}
-                  onClick={() => window.location.href = '/admin/users'}
-                >
-                  View All Users
-                </Button>
-              </div>
-            }
-          >
-            <Container padding="0">
-              <DataTable
-                data={users.slice(0, 5)}
-                columns={userColumns}
-                sortable={true}
-                pagination={false}
-                loading={loading}
-                emptyMessage={loading ? "Loading users..." : "No users found"}
-              />
-            </Container>
-          </Panel>
-        </Container>
-        
-      </Container>
-      
-      {/* Recent part entries */}
-      <Panel
-        title="Recent Part Entries"
-        icon={<FiTool size={20} />}
-        variant="elevated"
+      {/* Recent Activity */}
+      <DataTable
+        title={t('dashboard.recentActivity')}
+        icon={<FiClipboard size={20} />}
+        data={partsData}
+        columns={partsColumns}
         accent="gradient"
+        variant="elevated"
         compact
-        actions={
-          <div>
-            <Button variant="outline" size="sm">
-              View All
-            </Button>
-          </div>
-        }
-      >
-        <DataTable
-          data={partsData}
-          columns={partsColumns}
-          sortable={true}
-          pagination={false}
-          loading={loading}
-          emptyMessage={loading ? "Loading entries..." : "No recent part entries"}
-          onRowClick={(row) => console.log('Clicked row', row.id)}
-        />
-      </Panel>
+        pagination={true}
+        pageSize={5}
+        loading={loading}
+        emptyMessage={t('common.noData')}
+      />
+
     </PageContainer>
   );
 };

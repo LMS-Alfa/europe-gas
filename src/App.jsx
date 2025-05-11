@@ -4,6 +4,8 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { AnimatePresence, motion } from 'framer-motion';
 import GlobalStyles from './styles/GlobalStyles';
 import ProtectedRoute from './components/ProtectedRoute';
+import { I18nextProvider } from 'react-i18next';
+import i18n from './i18n';
 
 // Pages
 import Login from './pages/Login';
@@ -12,7 +14,7 @@ import PartsUpload from './pages/admin/PartsUpload';
 import UserManagement from './pages/admin/UserManagement';
 import BonusReports from './pages/admin/BonusReports';
 import UserDashboard from './pages/UserDashboard';
-import Layout from './components/Layout';
+import { Layout } from './components/Layout';
 
 // Animated route wrapper
 const AnimatedRoutes = () => {
@@ -23,55 +25,57 @@ const AnimatedRoutes = () => {
       <Routes location={location} key={location.pathname}>
         {/* Public Routes */}
         <Route path="/login" element={<Login />} />
-        <Route path="/" element={<Navigate to="/login" replace />} />
         
         {/* Admin Routes */}
         <Route 
           path="/admin" 
           element={
-            <ProtectedRoute requiredRole="admin">
-              <Layout title="Dashboard">
+            <ProtectedRoute allowedRoles={['admin']}>
+              <Layout>
                 <AdminDashboard />
               </Layout>
             </ProtectedRoute>
           } 
         />
+        
         <Route 
           path="/admin/parts" 
           element={
-            <ProtectedRoute requiredRole="admin">
-              <Layout title="Spare Parts">
+            <ProtectedRoute allowedRoles={['admin']}>
+              <Layout>
                 <PartsUpload />
               </Layout>
             </ProtectedRoute>
           } 
         />
+        
         <Route 
           path="/admin/users" 
           element={
-            <ProtectedRoute requiredRole="admin">
-              <Layout title="User Management">
+            <ProtectedRoute allowedRoles={['admin']}>
+              <Layout>
                 <UserManagement />
               </Layout>
             </ProtectedRoute>
           } 
         />
+        
         <Route 
           path="/admin/reports" 
           element={
-            <ProtectedRoute requiredRole="admin">
-              <Layout title="Bonus Reports">
+            <ProtectedRoute allowedRoles={['admin']}>
+              <Layout>
                 <BonusReports />
               </Layout>
             </ProtectedRoute>
           } 
         />
         
-        {/* User Route - Unified Page */}
+        {/* User Routes */}
         <Route 
           path="/dashboard" 
           element={
-            <ProtectedRoute requiredRole="user">
+            <ProtectedRoute allowedRoles={['user', 'admin']}>
               <Layout>
                 <UserDashboard />
               </Layout>
@@ -79,11 +83,8 @@ const AnimatedRoutes = () => {
           } 
         />
         
-        {/* Redirect old user routes to dashboard */}
-        <Route path="/parts" element={<Navigate to="/dashboard" replace />} />
-        <Route path="/history" element={<Navigate to="/dashboard" replace />} />
-        
-        {/* Catch All Route */}
+        {/* Default Route */}
+        <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </AnimatePresence>
@@ -92,14 +93,16 @@ const AnimatedRoutes = () => {
 
 function App() {
   return (
-    <ThemeProvider>
-      <GlobalStyles />
-      <AuthProvider>
-        <Router>
-          <AnimatedRoutes />
-        </Router>
-      </AuthProvider>
-    </ThemeProvider>
+    <I18nextProvider i18n={i18n}>
+      <ThemeProvider>
+        <GlobalStyles />
+        <AuthProvider>
+          <Router>
+            <AnimatedRoutes />
+          </Router>
+        </AuthProvider>
+      </ThemeProvider>
+    </I18nextProvider>
   );
 }
 

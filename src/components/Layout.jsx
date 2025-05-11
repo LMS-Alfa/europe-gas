@@ -9,6 +9,8 @@ import { FiHome, FiTool, FiUsers, FiFileText, FiActivity } from 'react-icons/fi'
 import { FiBarChart2, FiPackage } from 'react-icons/fi';
 import ThemeToggle from './ThemeToggle';
 import WebsiteLogo from './WebsiteLogo';
+import LanguageSelector from './LanguageSelector';
+import { useTranslationWithForceUpdate } from '../hooks/useTranslationWithForceUpdate';
 
 const LayoutContainer = styled.div`
   display: flex;
@@ -526,6 +528,7 @@ const dropdownVariants = {
 };
 
 const Layout = ({ children, title }) => {
+  const { t, currentLanguage } = useTranslationWithForceUpdate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarVisible, setSidebarVisible] = useState(true);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -603,23 +606,28 @@ const Layout = ({ children, title }) => {
     }
   };
 
-  // Define navigation items based on user role
+  // Define navigation items based on user role with translations
   const getNavItems = () => {
     if (isAdmin) {
       return [
-        { path: '/admin', label: 'Dashboard', icon: 'dashboard' },
-        { path: '/admin/parts', label: 'Spare Parts', icon: 'parts' },
-        { path: '/admin/users', label: 'Users', icon: 'users' },
-        { path: '/admin/reports', label: 'Bonus Reports', icon: 'reports' }
+        { path: '/admin', label: t('navigation.dashboard'), icon: 'dashboard' },
+        { path: '/admin/parts', label: t('navigation.parts'), icon: 'parts' },
+        { path: '/admin/users', label: t('navigation.users'), icon: 'users' },
+        { path: '/admin/reports', label: t('navigation.bonusReports'), icon: 'reports' }
       ];
     } else {
       return [
-        { path: '/dashboard', label: 'Parts Entry', icon: 'entry' },
+        { path: '/dashboard', label: t('enterPart.title'), icon: 'entry' },
       ];
     }
   };
 
-  const navItems = getNavItems();
+  // Update nav items when language changes
+  const [navItems, setNavItems] = useState(getNavItems());
+  
+  useEffect(() => {
+    setNavItems(getNavItems());
+  }, [currentLanguage, isAdmin]);
   
   // Get user initials for avatar
   const getUserInitials = () => {
@@ -640,6 +648,18 @@ const Layout = ({ children, title }) => {
     }
     
     return '?';
+  };
+
+  // Create a wrapper component that doesn't pass down the filtered props
+  const ContentWrapper = ({ children }) => {
+    // These props will be filtered by the .attrs method
+    const contentProps = {
+      sidebarVisible: showSidebar && !isMobile && sidebarVisible,
+      showSidebar,
+      isMobile
+    };
+    
+    return <Content {...contentProps}>{children}</Content>;
   };
 
   return (
@@ -737,17 +757,13 @@ const Layout = ({ children, title }) => {
               isCollapsed={!isMobile && !sidebarVisible}
             >
               <FiLogOut size={!isMobile && !sidebarVisible ? 20 : 18} /> 
-              {(isMobile || sidebarVisible) && "Logout"}
+              {(isMobile || sidebarVisible) && t('navigation.logout')}
             </DropdownItem>
           </UserInfo>
         </Sidebar>
       )}
       
-      <Content 
-        sidebarVisible={showSidebar && !isMobile && sidebarVisible} 
-        showSidebar={showSidebar}
-        isMobile={isMobile}
-      >
+      <ContentWrapper>
         <Header
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -783,6 +799,7 @@ const Layout = ({ children, title }) => {
           </LogoContainer>
           
           <HeaderActions>
+            <LanguageSelector />
             <ThemeToggle />
             
             <UserDropdown>
@@ -821,8 +838,6 @@ const Layout = ({ children, title }) => {
           </HeaderActions>
         </Header>
         
- 
-        
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -830,9 +845,11 @@ const Layout = ({ children, title }) => {
         >
           {children}
         </motion.div>
-      </Content>
+      </ContentWrapper>
     </LayoutContainer>
   );
 };
 
-export default Layout; 
+// Export both as default and named export
+export default Layout;
+export { Layout }; 

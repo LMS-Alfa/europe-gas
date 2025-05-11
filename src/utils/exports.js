@@ -1,6 +1,7 @@
 /**
  * Utility functions for exporting charts and data
  */
+import * as XLSX from 'xlsx';
 
 /**
  * Converts an HTML element to an image and triggers download
@@ -13,47 +14,96 @@ export const downloadElementAsImage = (elementId, fileName) => {
   const element = document.getElementById(elementId);
   if (!element) {
     console.error(`Element with ID ${elementId} not found`);
-    alert(`Error: Chart element not found`);
+    
+    // Debug helper to list all available IDs in the document
+    console.log('Available elements with IDs:');
+    const allElementsWithId = document.querySelectorAll('[id]');
+    allElementsWithId.forEach(el => {
+      console.log(`- ${el.id} (${el.tagName})`);
+    });
+    
+    alert(`Error: Chart element not found with ID: ${elementId}`);
     return;
   }
   
+  console.log(`Found element with ID ${elementId}:`, element);
+  
   try {
-    // Find SVG element - either direct child or inside ResponsiveContainer
+    // Find SVG element using more robust selector patterns for Recharts
     let svgElement = element.querySelector('svg');
     
-    // If not found as direct child, look deeper in the DOM tree
+    // If not found as direct child, look deeper using multiple patterns
     if (!svgElement) {
-      // Look for SVG in nested containers (Recharts specific structure)
-      const containerElement = element.querySelector('.recharts-wrapper');
-      if (containerElement) {
-        svgElement = containerElement.querySelector('svg');
+      // Look in different nested containers that Recharts might create
+      const possibleContainers = [
+        element.querySelector('.recharts-wrapper'),
+        element.querySelector('.recharts-surface'),
+        element.querySelector('.recharts-responsive-container')
+      ];
+      
+      // Try each possible container
+      for (const container of possibleContainers) {
+        if (container) {
+          svgElement = container.querySelector('svg');
+          if (svgElement) break;
+        }
+      }
+      
+      // If still not found, try getting any SVG deeper in the DOM
+      if (!svgElement) {
+        svgElement = element.getElementsByTagName('svg')[0];
       }
     }
     
     if (svgElement) {
-      // For SVG charts (Recharts)
-      const svgData = new XMLSerializer().serializeToString(svgElement);
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
+      console.log(`Found SVG element for ${elementId}, proceeding with export`);
       
-      // Set canvas dimensions to match SVG
-      const rect = svgElement.getBoundingClientRect();
-      canvas.width = rect.width;
-      canvas.height = rect.height;
+      // Create a clone of the SVG to avoid modifying the original
+      const clonedSvg = svgElement.cloneNode(true);
       
-      // Create an image from SVG
+      // Ensure SVG has proper dimensions
+      const boundingRect = svgElement.getBoundingClientRect();
+      clonedSvg.setAttribute('width', boundingRect.width);
+      clonedSvg.setAttribute('height', boundingRect.height);
+      
+      // Inline styles for better rendering in exported image
+      const styles = document.querySelectorAll('style');
+      let styleText = '';
+      styles.forEach(style => styleText += style.textContent);
+      
+      // Add a style element to the cloned SVG
+      const styleElement = document.createElement('style');
+      styleElement.textContent = styleText;
+      clonedSvg.insertBefore(styleElement, clonedSvg.firstChild);
+      
+      // Serialize SVG to a string
+      const svgData = new XMLSerializer().serializeToString(clonedSvg);
+      
+      // Create a Blob from the SVG string
+      const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(svgBlob);
+      
+      // Create an Image element to draw the SVG on a canvas
       const img = new Image();
-      const blob = new Blob([svgData], { type: 'image/svg+xml' });
-      const url = URL.createObjectURL(blob);
       
       img.onload = function() {
-        // Draw image on canvas
-        ctx.fillStyle = '#1a1a1a'; // Dark background to match theme
+        // Create a canvas with the same dimensions
+        const canvas = document.createElement('canvas');
+        canvas.width = boundingRect.width;
+        canvas.height = boundingRect.height;
+        const ctx = canvas.getContext('2d');
+        
+        // Fill with white background
+        ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw the image on the canvas
         ctx.drawImage(img, 0, 0);
+        
+        // Release the object URL
         URL.revokeObjectURL(url);
         
-        // Convert canvas to PNG
+        // Convert canvas to PNG and download
         try {
           const dataUrl = canvas.toDataURL('image/png');
           
@@ -73,17 +123,33 @@ export const downloadElementAsImage = (elementId, fileName) => {
       };
       
       img.onerror = function() {
-        console.error('Error loading SVG image');
-        alert('Failed to export chart: Error loading SVG image');
+        console.error('Error loading SVG image for export');
         URL.revokeObjectURL(url);
+        
+        // Fallback to direct SVG download if PNG conversion fails
+        try {
+          console.log('Attempting direct SVG download as fallback');
+          const svgBlob = new Blob([svgData], { type: 'image/svg+xml' });
+          const svgUrl = URL.createObjectURL(svgBlob);
+          const link = document.createElement('a');
+          link.download = `${fileName}.svg`;
+          link.href = svgUrl;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(svgUrl);
+          console.log(`Chart downloaded as ${fileName}.svg`);
+        } catch (svgErr) {
+          console.error('Error with SVG fallback:', svgErr);
+          alert('Failed to export chart: Could not convert to image');
+        }
       };
       
       img.src = url;
     } else {
-      // Attempt to capture the entire element as an image using html2canvas approach
-      console.warn('No SVG element found in chart, attempting fallback capture');
+      console.warn(`No SVG element found in chart with ID: ${elementId}, attempting fallback capture`);
       
-      // Create a canvas matching the element dimensions
+      // Create a simple canvas as a fallback
       const canvas = document.createElement('canvas');
       const rect = element.getBoundingClientRect();
       canvas.width = rect.width;
@@ -91,14 +157,15 @@ export const downloadElementAsImage = (elementId, fileName) => {
       const ctx = canvas.getContext('2d');
       
       // Set background
-      ctx.fillStyle = '#1a1a1a'; // Dark background to match theme
+      ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       
-      // Draw text indicating manual screenshot is needed
-      ctx.font = '14px Arial';
-      ctx.fillStyle = '#ffffff';
+      // Draw placeholder text
+      ctx.font = '16px Arial';
+      ctx.fillStyle = '#666666';
       ctx.textAlign = 'center';
-      ctx.fillText('Please use screenshot tool to capture this chart', canvas.width / 2, canvas.height / 2);
+      ctx.fillText('Chart export not available', canvas.width / 2, canvas.height / 2 - 20);
+      ctx.fillText('Please use screenshot tool instead', canvas.width / 2, canvas.height / 2 + 20);
       
       // Convert canvas to image and download
       try {
@@ -110,7 +177,7 @@ export const downloadElementAsImage = (elementId, fileName) => {
         link.click();
         document.body.removeChild(link);
         
-        alert('This chart type could not be automatically exported. A placeholder has been downloaded instead. Please use your system screenshot tool to capture the chart.');
+        alert('This chart could not be automatically exported. A placeholder has been downloaded instead. Please use your system screenshot tool to capture the chart.');
       } catch (err) {
         console.error('Error with fallback capture:', err);
         alert('Failed to export chart. Please use your system screenshot tool instead.');
@@ -193,7 +260,50 @@ export const formatDateForFileName = (date = new Date()) => {
 };
 
 /**
- * Exports a report as CSV with formatted data
+ * Exports data as an Excel file
+ * 
+ * @param {Array} data - The data to export
+ * @param {string} fileName - The name of the downloaded file (without extension)
+ */
+export const exportAsExcel = (data, fileName) => {
+  if (!data || !data.length) {
+    console.error('No data to export');
+    return false;
+  }
+  
+  try {
+    // Create a new workbook
+    const workbook = XLSX.utils.book_new();
+    
+    // Convert data to worksheet
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    
+    // Add the worksheet to the workbook
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Report');
+    
+    // Set column widths for better readability
+    const columnWidths = [];
+    const headerKeys = Object.keys(data[0]);
+    
+    // Set width based on header length (plus some padding)
+    headerKeys.forEach(key => {
+      columnWidths.push({ wch: Math.max(key.length + 2, 15) });
+    });
+    
+    worksheet['!cols'] = columnWidths;
+    
+    // Export the workbook
+    XLSX.writeFile(workbook, `${fileName}.xlsx`);
+    
+    return true;
+  } catch (error) {
+    console.error('Error exporting data as Excel:', error);
+    return false;
+  }
+};
+
+/**
+ * Exports a report as Excel with formatted data
  * 
  * @param {Array} reportData - The report data to export
  * @param {string} reportType - The type of report (used in filename)
@@ -206,16 +316,13 @@ export const exportReport = (reportData, reportType, periodName = '') => {
   }
   
   try {
-    // Get headers from the first data item
-    const headers = Object.keys(reportData[0]);
-    
     // Generate a filename
     const dateStr = formatDateForFileName();
     const periodStr = periodName ? `_${periodName.replace(/\s+/g, '_')}` : '';
     const fileName = `${reportType}_report${periodStr}_${dateStr}`;
     
-    // Export as CSV
-    return exportAsCSV(reportData, headers, fileName);
+    // Export as Excel
+    return exportAsExcel(reportData, fileName);
   } catch (error) {
     console.error('Error exporting report:', error);
     alert('Failed to export report');

@@ -16,6 +16,7 @@
   - Supabase Auth (phone-based authentication)
   - Supabase Storage (file storage)
   - Supabase Functions (serverless functions)
+  - Supabase Database Queries (for dashboard statistics)
 
 - **Infrastructure**:
   - Vercel or Netlify (hosting/deployment)
@@ -43,8 +44,23 @@
 
 ## External Integrations
 - Supabase platform services
+  - Supabase Database for storing and retrieving application data
+  - Supabase Auth for user authentication
+  - Supabase Storage for file storage
 - SMS service for phone authentication (via Supabase)
 - Optional: Export functionality to external systems
+
+## API Implementation
+- Centralized API functions in `api.js` for Supabase data retrieval
+- Dashboard statistics functions (`getDashboardStats`, `getRecentActivity`)
+- Error handling and loading state management
+- Data formatting utilities for consistent display
+
+## Dashboard Components
+- Modern stat cards with circular icon backgrounds
+- Distinctive color schemes for different stat types
+- Refresh functionality with loading state indicators
+- Data formatting for numbers and currency values
 
 ## Tooling
 - **Development Tools**:
@@ -75,8 +91,11 @@
 - Performance considerations for CSV processing
 - Security requirements for handling user data and authentication
 - SMS rate limits for phone-based authentication
+- Dashboard data refresh rate limitations
 
 ## UI Implementation Patterns
+- Modern stat cards with circular icon backgrounds and distinctive colors
+- Dashboard refresh functionality with loading state indicators
 - Responsive GridLayout component for layout management
 - Card-style layouts for tables on mobile devices
 - Glass morphism effects for modern UI elements
@@ -85,6 +104,9 @@
 - Responsive tables that transform to cards on smaller screens
 
 ## Performance Considerations
+- Optimize database queries for dashboard statistics
+- Implement loading states for dashboard components
+- Efficient data refresh mechanisms to avoid unnecessary API calls
 - Optimize CSV parsing for large files
 - Implement pagination for large datasets
 - Use proper indexing in database tables
@@ -100,6 +122,13 @@
 - Proper error handling to prevent information leakage
 - Data validation before storage
 - Secure handling of phone numbers
+- Proper environment variable management for API keys
+
+## Database Schema
+- Users table: storing user information including phone numbers
+- Parts table: inventory of spare parts
+- User_parts table: tracking which users have entered which parts
+- Bonus_logs: recording bonuses earned by users
 
 ## Notes
 This document describes the technologies used and technical considerations. It should be updated when new technologies are introduced or technical requirements change. 

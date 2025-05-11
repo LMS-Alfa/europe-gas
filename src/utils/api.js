@@ -434,10 +434,10 @@ export const getAllUserParts = async () => {
 // ===== Bonus Management APIs =====
 export const getUserBonus = async (userId) => {
   try {
-    // Count the user's entered parts (each part = $1)
+    // Get user's entered parts with payment status
     const { data: userParts, error: userPartsError } = await supabase
       .from('enteredparts')
-      .select('id')
+      .select('id, paid')
       .eq('user_id', userId);
       
     if (userPartsError) {
@@ -445,13 +445,21 @@ export const getUserBonus = async (userId) => {
       return { totalBonus: 0, pendingBonus: 0, paidBonus: 0 };
     }
     
+    if (!userParts) {
+      return { totalBonus: 0, pendingBonus: 0, paidBonus: 0 };
+    }
+    
     // Calculate total bonus ($1 per part)
-    const totalBonus = userParts ? userParts.length : 0;
+    const totalBonus = userParts.length;
+    
+    // Calculate paid and pending bonuses
+    const paidBonusCount = userParts.filter(part => part.paid === true).length;
+    const pendingBonusCount = totalBonus - paidBonusCount;
     
     return {
       totalBonus,
-      pendingBonus: totalBonus, // All bonuses are pending since we don't have a payments table
-      paidBonus: 0 // No payments made yet
+      pendingBonus: pendingBonusCount,
+      paidBonus: paidBonusCount
     };
   } catch (error) {
     console.error('Error calculating user bonus:', error);
@@ -1175,5 +1183,469 @@ export const getPartsRemainingCount = async () => {
   } catch (error) {
     console.error('Error in getPartsRemainingCount:', error);
     return 0;
+  }
+};
+
+/**
+ * Get the quarter number (1-4) for a given date
+ * @param {Date} date - The date to get the quarter for
+ * @returns {number} - Quarter number (1-4)
+ */
+export const getQuarterFromDate = (date) => {
+  const month = date.getMonth();
+  if (month < 3) return 1; // Jan, Feb, Mar
+  if (month < 6) return 2; // Apr, May, Jun
+  if (month < 9) return 3; // Jul, Aug, Sep
+  return 4; // Oct, Nov, Dec
+};
+
+/**
+ * Get the quarter label for a given date (e.g., 'Q1 2023')
+ * @param {Date} date - The date to get the quarter label for
+ * @returns {string} - Quarter label (e.g., 'Q1 2023')
+ */
+export const getQuarterLabel = (date) => {
+  const quarter = getQuarterFromDate(date);
+  const year = date.getFullYear();
+  return `Q${quarter} ${year}`;
+};
+
+/**
+ * Calculate bonus amounts by quarter for a specific user
+ * @param {string} userId - The user ID to calculate bonuses for
+ * @returns {Promise<Array>} - Array of quarterly bonus data
+ */
+export const getUserBonusesByQuarter = async (userId) => {
+  try {
+    // Get all parts entered by the user
+    const { data: userParts, error } = await supabase
+      .from('enteredparts')
+      .select('*, parts:part_id (serial_number)')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true });
+      
+    if (error) throw error;
+    
+    if (!userParts || userParts.length === 0) {
+      return [];
+    }
+    
+    // Group parts by quarter
+    const quarterMap = {};
+    
+    userParts.forEach(part => {
+      const created = new Date(part.created_at);
+      const quarter = getQuarterFromDate(created);
+      const year = created.getFullYear();
+      const quarterKey = `${quarter}_${year}`;
+      
+      if (!quarterMap[quarterKey]) {
+        quarterMap[quarterKey] = {
+          quarter,
+          year,
+          quarterLabel: `Q${quarter} ${year}`,
+          parts: [],
+          total: 0,
+          paidCount: 0,
+          pendingCount: 0,
+          paymentDate: null
+        };
+      }
+      
+      quarterMap[quarterKey].parts.push(part);
+      quarterMap[quarterKey].total += 1; // $1 per part
+      
+      // Check if this part is marked as paid
+      if (part.paid) {
+        quarterMap[quarterKey].paidCount += 1;
+        // Use the most recent payment date
+        if (part.payment_date && (!quarterMap[quarterKey].paymentDate || 
+            new Date(part.payment_date) > new Date(quarterMap[quarterKey].paymentDate))) {
+          quarterMap[quarterKey].paymentDate = part.payment_date;
+        }
+      } else {
+        quarterMap[quarterKey].pendingCount += 1;
+      }
+    });
+    
+    // Convert map to array
+    const quarterlyBonuses = Object.values(quarterMap).map(q => {
+      // Determine payment status - if all parts are paid, status is "paid"
+      // if some parts are paid, status is "partial", otherwise "pending"
+      let paymentStatus = "pending";
+      if (q.paidCount === q.parts.length) {
+        paymentStatus = "paid";
+      } else if (q.paidCount > 0) {
+        paymentStatus = "partial";
+      }
+      
+      return {
+        userId,
+        quarter: q.quarter,
+        year: q.year,
+        quarterLabel: q.quarterLabel,
+        partCount: q.parts.length,
+        bonusAmount: q.total,
+        paymentStatus: paymentStatus,
+        paymentDate: q.paymentDate,
+        parts: q.parts
+      };
+    });
+    
+    return quarterlyBonuses;
+  } catch (error) {
+    console.error('Error calculating user bonuses by quarter:', error);
+    throw error;
+  }
+};
+
+/**
+ * Calculate bonus amounts by quarter for all users
+ * @returns {Promise<Array>} - Array of quarterly bonus data for all users
+ */
+export const getAllUserBonusesByQuarter = async () => {
+  try {
+    console.log('Starting getAllUserBonusesByQuarter...');
+    
+    // Get all users
+    const { data: users, error: usersError } = await supabase
+      .from('profiles')
+      .select('id, firstName, lastName, email, role');
+      
+    if (usersError) {
+      console.error('Error fetching users:', usersError);
+      throw usersError;
+    }
+    
+    console.log(`Found ${users?.length || 0} users in the system`);
+    
+    if (!users || users.length === 0) {
+      console.warn('No users found in the system');
+      return [];
+    }
+    
+    // Get all entered parts
+    const { data: allParts, error: partsError } = await supabase
+      .from('enteredparts')
+      .select('*, profiles:user_id (firstName, lastName, email), parts:part_id (serial_number)')
+      .order('created_at', { ascending: true });
+      
+    if (partsError) {
+      console.error('Error fetching entered parts:', partsError);
+      throw partsError;
+    }
+    
+    console.log(`Found ${allParts?.length || 0} entered parts in the system`);
+    
+    if (!allParts || allParts.length === 0) {
+      console.warn('No entered parts found in the system');
+      return [];
+    }
+    
+    // Debug output to check enteredparts structure
+    console.log('First entered part record:', JSON.stringify(allParts[0]));
+    
+    // Check if the required columns exist in the enteredparts table
+    const firstPart = allParts[0];
+    const hasPaidColumn = 'paid' in firstPart;
+    const hasPaymentDateColumn = 'payment_date' in firstPart;
+    
+    console.log(`Schema check - paid column: ${hasPaidColumn ? 'exists' : 'MISSING'}, payment_date column: ${hasPaymentDateColumn ? 'exists' : 'MISSING'}`);
+    
+    // If columns are missing, let's log the available columns
+    if (!hasPaidColumn || !hasPaymentDateColumn) {
+      console.warn('Available columns in enteredparts:', Object.keys(firstPart).join(', '));
+      
+      // Check if we need to alter the table
+      console.warn('Missing required columns in enteredparts table. Need to add: ' + 
+        (!hasPaidColumn ? 'paid (boolean)' : '') + 
+        (!hasPaidColumn && !hasPaymentDateColumn ? ' and ' : '') +
+        (!hasPaymentDateColumn ? 'payment_date (timestamp)' : ''));
+    }
+    
+    // Group parts by user and quarter
+    const userQuarterMap = {};
+    
+    allParts.forEach(part => {
+      if (!part.user_id || !part.created_at) {
+        console.warn('Skipping part with missing data:', part);
+        return;
+      }
+      
+      const userId = part.user_id;
+      const created = new Date(part.created_at);
+      const quarter = getQuarterFromDate(created);
+      const year = created.getFullYear();
+      const quarterKey = `${userId}_${quarter}_${year}`;
+      
+      if (!userQuarterMap[quarterKey]) {
+        // Extract user info safely
+        let userName = 'Unknown User';
+        let email = 'N/A';
+        
+        if (part.profiles) {
+          const firstName = part.profiles.firstName || '';
+          const lastName = part.profiles.lastName || '';
+          userName = `${firstName} ${lastName}`.trim() || 'Unknown User';
+          email = part.profiles.email || 'N/A';
+          console.log(`Found user profile for ${userId}: ${userName}`);
+        } else {
+          console.warn(`User profile not found for part ${part.id}, user_id ${userId}`);
+        }
+        
+        userQuarterMap[quarterKey] = {
+          userId,
+          userName,
+          email,
+          quarter,
+          year,
+          quarterLabel: `Q${quarter} ${year}`,
+          parts: [],
+          total: 0,
+          paidCount: 0,
+          pendingCount: 0,
+          paymentDate: null
+        };
+      }
+      
+      userQuarterMap[quarterKey].parts.push(part);
+      userQuarterMap[quarterKey].total += 1; // $1 per part
+      
+      // Check if this part is marked as paid - if paid column exists
+      if (hasPaidColumn && part.paid === true) {
+        userQuarterMap[quarterKey].paidCount += 1;
+        // Use the most recent payment date if available
+        if (hasPaymentDateColumn && part.payment_date && (!userQuarterMap[quarterKey].paymentDate || 
+            new Date(part.payment_date) > new Date(userQuarterMap[quarterKey].paymentDate))) {
+          userQuarterMap[quarterKey].paymentDate = part.payment_date;
+        }
+      } else {
+        userQuarterMap[quarterKey].pendingCount += 1;
+      }
+    });
+    
+    console.log(`Grouped ${allParts.length} parts into ${Object.keys(userQuarterMap).length} user-quarter combinations`);
+    
+    // Convert map to array with safety checks
+    const allQuarterlyBonuses = Object.values(userQuarterMap).map(q => {
+      // Determine payment status - if all parts are paid, status is "paid"
+      // if some parts are paid, status is "partial", otherwise "pending"
+      let paymentStatus = "pending";
+      
+      if (hasPaidColumn) {
+        if (q.paidCount === q.parts.length && q.parts.length > 0) {
+          paymentStatus = "paid";
+        } else if (q.paidCount > 0) {
+          paymentStatus = "partial";
+        }
+      }
+      
+      return {
+        userId: q.userId,
+        userName: q.userName,
+        email: q.email,
+        quarter: q.quarter,
+        year: q.year,
+        quarterLabel: q.quarterLabel,
+        partCount: q.parts.length,
+        bonusAmount: q.total,
+        paymentStatus: paymentStatus,
+        paymentDate: q.paymentDate,
+        parts: q.parts.map(p => p.id) // Just store IDs to reduce size
+      };
+    });
+    
+    console.log(`Returning ${allQuarterlyBonuses.length} quarterly bonus records`);
+    return allQuarterlyBonuses;
+  } catch (error) {
+    console.error('Error calculating all user bonuses by quarter:', error);
+    return []; // Return empty array instead of throwing to prevent UI crashes
+  }
+};
+
+/**
+ * Get bonuses for a specific quarter
+ * @param {number} quarter - Quarter number (1-4)
+ * @param {number} year - Year (e.g., 2023)
+ * @returns {Promise<Array>} - Array of user bonuses for the specified quarter
+ */
+export const getBonusesByQuarter = async (quarter, year) => {
+  try {
+    const allBonuses = await getAllUserBonusesByQuarter();
+    return allBonuses.filter(b => b.quarter === quarter && b.year === year);
+  } catch (error) {
+    console.error('Error getting bonuses by quarter:', error);
+    throw error;
+  }
+};
+
+/**
+ * Mark a quarterly bonus as paid or pending
+ * @param {object} paymentData - Object containing payment information
+ * @param {string} paymentData.userId - User ID
+ * @param {number} paymentData.quarter - Quarter number (1-4)
+ * @param {number} paymentData.year - Year (e.g., 2023)
+ * @param {number} paymentData.amount - Bonus amount
+ * @param {string} paymentData.status - Payment status ('pending', 'approved', or 'paid')
+ * @param {string} paymentData.paymentDate - Payment date (optional, for 'paid' status)
+ * @returns {Promise<object>} - The created or updated payment record
+ */
+export const updateBonusPayment = async (paymentData) => {
+  try {
+    const { userId, quarter, year, amount, status, paymentDate } = paymentData;
+    
+    // Find all parts for this user in the specified quarter and year
+    const startDate = new Date(year, (quarter - 1) * 3, 1); // First day of the quarter
+    const endDate = new Date(year, quarter * 3, 0);  // Last day of the quarter
+    
+    console.log('Finding parts for payment between:', startDate, 'and', endDate, 'for user:', userId);
+    
+    // Get all parts entered by this user in this quarter
+    const { data: partsToUpdate, error: fetchError } = await supabase
+      .from('enteredparts')
+      .select('id, created_at, paid, payment_date')
+      .eq('user_id', userId)
+      .gte('created_at', startDate.toISOString())
+      .lte('created_at', endDate.toISOString());
+      
+    if (fetchError) {
+      console.error('Error fetching parts to update:', fetchError);
+      throw fetchError;
+    }
+    
+    console.log('Found parts to update:', partsToUpdate);
+    
+    if (!partsToUpdate || partsToUpdate.length === 0) {
+      console.log('No parts found for this quarter');
+      return { 
+        success: false, 
+        error: 'No parts found for this quarter',
+        updatedCount: 0
+      };
+    }
+    
+    // Get IDs of parts to update
+    const partIds = partsToUpdate.map(part => part.id);
+    
+    // If marking as paid, set both paid=true and payment_date
+    if (status === 'paid') {
+      const { data, error: updateError } = await supabase
+        .from('enteredparts')
+        .update({ 
+          paid: true, 
+          payment_date: paymentDate 
+        })
+        .in('id', partIds);
+        
+      if (updateError) {
+        console.error('Error updating payment status:', updateError);
+        throw updateError;
+      }
+      
+      console.log(`Marked ${partIds.length} parts as paid with date ${paymentDate}`);
+      
+      return {
+        success: true,
+        updatedCount: partIds.length,
+        status: 'paid',
+        paymentDate
+      };
+    } 
+    // If marking as pending, set paid=false and clear payment_date
+    else if (status === 'pending') {
+      const { data, error: updateError } = await supabase
+        .from('enteredparts')
+        .update({ 
+          paid: false, 
+          payment_date: null 
+        })
+        .in('id', partIds);
+        
+      if (updateError) {
+        console.error('Error updating payment status:', updateError);
+        throw updateError;
+      }
+      
+      console.log(`Marked ${partIds.length} parts as pending (unpaid)`);
+      
+      return {
+        success: true,
+        updatedCount: partIds.length,
+        status: 'pending',
+        paymentDate: null
+      };
+    }
+    
+    return {
+      success: false,
+      error: `Invalid status: ${status}`,
+      updatedCount: 0
+    };
+  } catch (error) {
+    console.error('Error updating bonus payment:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get quarterly trends for bonus data
+ * Shows totals for each quarter across all users
+ * @returns {Promise<Array>} - Array of quarterly trend data
+ */
+export const getQuarterlyBonusTrends = async () => {
+  try {
+    const allBonuses = await getAllUserBonusesByQuarter();
+    
+    // Group by quarter
+    const quarterMap = {};
+    
+    allBonuses.forEach(bonus => {
+      const key = `${bonus.quarter}_${bonus.year}`;
+      
+      if (!quarterMap[key]) {
+        quarterMap[key] = {
+          quarter: bonus.quarterLabel,
+          quarterNum: bonus.quarter,
+          year: bonus.year,
+          partsCount: 0,
+          bonusTotal: 0,
+          paidAmount: 0,
+          pendingAmount: 0,
+          userCount: new Set()
+        };
+      }
+      
+      quarterMap[key].partsCount += bonus.partCount;
+      quarterMap[key].bonusTotal += bonus.bonusAmount;
+      quarterMap[key].userCount.add(bonus.userId);
+      
+      // Calculate paid and pending amounts based on payment status
+      if (bonus.paymentStatus === 'paid') {
+        quarterMap[key].paidAmount += bonus.bonusAmount;
+      } else if (bonus.paymentStatus === 'partial') {
+        // For partial payments, we don't have the exact breakdown
+        // We'll estimate based on the ratio of paid to total parts
+        const paidRatio = bonus.paidCount / bonus.partCount;
+        const paidAmount = bonus.bonusAmount * paidRatio;
+        quarterMap[key].paidAmount += paidAmount;
+        quarterMap[key].pendingAmount += (bonus.bonusAmount - paidAmount);
+      } else {
+        quarterMap[key].pendingAmount += bonus.bonusAmount;
+      }
+    });
+    
+    // Convert to array and sort by date
+    return Object.values(quarterMap)
+      .map(q => ({
+        ...q,
+        userCount: q.userCount.size
+      }))
+      .sort((a, b) => {
+        if (a.year !== b.year) return a.year - b.year;
+        return a.quarterNum - b.quarterNum;
+      });
+  } catch (error) {
+    console.error('Error getting quarterly bonus trends:', error);
+    return [];
   }
 }; 

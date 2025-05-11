@@ -2,7 +2,12 @@ import React from 'react';
 import styled from 'styled-components';
 import { motion } from 'framer-motion';
 
-const GridContainer = styled.div`
+// Use attrs to prevent custom props from being forwarded to the DOM
+const GridContainer = styled.div.attrs(props => {
+  // Filter out custom props that shouldn't be passed to the DOM
+  const { columns, gap, mobileGap, ...rest } = props;
+  return rest;
+})`
   display: grid;
   gap: ${props => props.gap || props.theme.spacing.lg};
   width: 100%;
@@ -34,7 +39,12 @@ const GridContainer = styled.div`
   }
 `;
 
-const GridItem = styled(motion.div)`
+// Use attrs to prevent custom props from being forwarded to the DOM
+const GridItem = styled(motion.div).attrs(props => {
+  // Filter out custom props that shouldn't be passed to the DOM
+  const { colSpan, rowSpan, minHeight, fullHeight, ...rest } = props;
+  return rest;
+})`
   /* Column span */
   grid-column: span ${props => props.colSpan || 3};
   

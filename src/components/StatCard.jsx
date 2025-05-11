@@ -13,7 +13,11 @@ const StatContainer = styled(motion.div)`
   }
 `;
 
-const StatValue = styled.div`
+const StatValue = styled.div.attrs(props => {
+  // Filter out custom props
+  const { gradient, color, ...rest } = props;
+  return rest;
+})`
   font-size: 2.5rem;
   font-weight: ${props => props.theme.typography.fontWeight.bold};
   margin: ${props => props.theme.spacing.sm} 0;
@@ -47,7 +51,11 @@ const StatLabel = styled.div`
   }
 `;
 
-const StatTrend = styled.div`
+const StatTrend = styled.div.attrs(props => {
+  // Filter out custom props
+  const { trend, ...rest } = props;
+  return rest;
+})`
   display: flex;
   align-items: center;
   margin-top: ${props => props.theme.spacing.sm};
@@ -67,7 +75,11 @@ const TrendIcon = styled.span`
   margin-right: ${props => props.theme.spacing.xs};
 `;
 
-const StatIcon = styled.div`
+const StatIcon = styled.div.attrs(props => {
+  // Filter out custom props
+  const { color, ...rest } = props;
+  return rest;
+})`
   display: flex;
   align-items: center;
   justify-content: center;

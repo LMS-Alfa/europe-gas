@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { motion } from 'framer-motion';
-import { FiSearch, FiEdit2, FiTrash2, FiUserPlus, FiUser, FiMail, FiLock, FiUserCheck, FiX, FiMoreVertical, FiPhone, FiAlertCircle } from 'react-icons/fi';
+import { FiSearch, FiEdit2, FiTrash2, FiUserPlus, FiUser, FiMail, FiLock, FiUserCheck, FiX, FiMoreVertical, FiPhone, FiAlertCircle, FiCheckCircle } from 'react-icons/fi';
 import PageContainer from '../../components/PageContainer';
 import { Container } from '../../components/Container';
 import DataTable from '../../components/DataTable';
@@ -270,9 +270,11 @@ const ButtonGroup = styled.div`
 
 const StyledButton = styled.button`
   padding: ${props => `${props.theme.spacing.md} ${props.theme.spacing.xl}`};
-  background-color: ${props => props.variant === 'secondary' 
-    ? props.theme.colors.background 
-    : props.theme.colors.primary};
+  background-color: ${props => {
+    if (props.variant === 'secondary') return props.theme.colors.background;
+    if (props.variant === 'error') return props.theme.colors.error;
+    return props.theme.colors.primary;
+  }};
   color: ${props => props.variant === 'secondary' 
     ? props.theme.colors.text.primary 
     : 'white'};
@@ -293,9 +295,11 @@ const StyledButton = styled.button`
     : props.theme.shadows.md};
   
   &:hover {
-    background-color: ${props => props.variant === 'secondary' 
-      ? props.theme.colors.border 
-      : props.theme.colors.primaryDark};
+    background-color: ${props => {
+      if (props.variant === 'secondary') return props.theme.colors.border;
+      if (props.variant === 'error') return `${props.theme.colors.error}E0`;
+      return props.theme.colors.primaryDark;
+    }};
     transform: translateY(-2px);
     box-shadow: ${props => props.variant === 'secondary' 
       ? 'none' 
@@ -1379,11 +1383,6 @@ const UserManagement = () => {
                 disabled={isLoading}
                 style={{ 
                   minWidth: '100px',
-                  border: '1px solid var(--color-border)',
-                  backgroundColor: 'transparent',
-                  color: 'var(--color-text-primary)',
-                  boxShadow: 'none',
-                  padding: '10px 20px',
                   height: '44px',
                   fontSize: '15px'
                 }}
@@ -1393,28 +1392,23 @@ const UserManagement = () => {
 
               <StyledButton
                 type="button"
+                variant="error"
                 onClick={confirmDelete}
                 disabled={isLoading}
                 style={{ 
                   minWidth: '100px',
-                  border: 'none',
-                  backgroundColor: 'var(--color-error)',
-                  color: 'white',
-                  fontWeight: '500',
-                  padding: '10px 20px',
                   height: '44px',
-                  borderRadius: '6px',
                   fontSize: '15px'
                 }}
               >
                 {isLoading ? (
                   <>
-                    <Spinner style={{ marginRight: '8px' }} />
+                    <Spinner />
                     Deleting...
                   </>
                 ) : (
                   <>
-                    <FiTrash2 size={16} style={{ marginRight: '8px' }} />
+                    <FiTrash2 size={16} />
                     Delete User
                   </>
                 )}
