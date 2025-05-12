@@ -22,6 +22,10 @@ const Container = styled.div`
   max-width: 1200px;
   margin: 0 auto;
   padding: 2rem;
+  
+  @media (max-width: ${props => props.theme.breakpoints.sm}) {
+    padding: 1rem;
+  }
 `;
 
 const Card = styled(motion.div)`
@@ -35,6 +39,12 @@ const Card = styled(motion.div)`
 const ReportTable = styled.table`
   width: 100%;
   border-collapse: collapse;
+  
+  @media (max-width: ${props => props.theme.breakpoints.md}) {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
 `;
 
 const TableHead = styled.thead`
@@ -45,6 +55,11 @@ const TableHead = styled.thead`
     text-align: left;
     font-weight: ${props => props.theme.typography.fontWeight.medium};
     border-bottom: 1px solid ${props => props.theme.colors.border};
+    
+    @media (max-width: ${props => props.theme.breakpoints.sm}) {
+      padding: ${props => props.theme.spacing.sm};
+      font-size: 0.9rem;
+    }
   }
 `;
 
@@ -56,6 +71,11 @@ const TableBody = styled.tbody`
   td {
     padding: ${props => props.theme.spacing.md};
     border-bottom: 1px solid ${props => props.theme.colors.border};
+    
+    @media (max-width: ${props => props.theme.breakpoints.sm}) {
+      padding: ${props => props.theme.spacing.sm};
+      font-size: 0.9rem;
+    }
   }
 `;
 
@@ -94,6 +114,11 @@ const Button = styled.button`
   
   &:hover {
     background-color: ${props => props.theme.colors.secondary};
+  }
+  
+  @media (max-width: ${props => props.theme.breakpoints.sm}) {
+    padding: ${props => `${props.theme.spacing.sm} ${props.theme.spacing.md}`};
+    font-size: ${props => props.theme.typography.fontSize.sm};
   }
 `;
 
@@ -229,6 +254,15 @@ const ButtonGroup = styled.div`
   justify-content: flex-end;
   gap: ${props => props.theme.spacing.md};
   margin-top: ${props => props.theme.spacing.lg};
+  
+  @media (max-width: ${props => props.theme.breakpoints.sm}) {
+    flex-direction: column;
+    gap: ${props => props.theme.spacing.sm};
+    
+    & > button {
+      width: 100%;
+    }
+  }
 `;
 
 // Status badge for payment status
@@ -246,6 +280,11 @@ const StatusBadge = styled.span`
   color: ${props => 
     props.status === 'Paid' ? props.theme.colors.success : 
     props.theme.colors.warning};
+    
+  @media (max-width: ${props => props.theme.breakpoints.sm}) {
+    padding: 0.2rem 0.4rem;
+    font-size: 0.8rem;
+  }
 `;
 
 // Date picker container for payment date
@@ -354,6 +393,59 @@ const getRecentQuarters = (data = []) => {
       return bQuarter - aQuarter; // Most recent quarter first
     });
 };
+
+// Fix linter error by ensuring we don't inadvertently use 'with'
+const MobileDetailCard = styled.div`
+  border: 1px solid ${props => props.theme.colors.border};
+  border-radius: ${props => props.theme.borderRadius.md};
+  padding: ${props => props.theme.spacing.md};
+  margin-bottom: ${props => props.theme.spacing.md};
+  background-color: ${props => props.theme.colors.surface};
+  
+  h4 {
+    margin-top: 0;
+    margin-bottom: ${props => props.theme.spacing.sm};
+    font-size: 1rem;
+  }
+`;
+
+const DetailRow = styled.div`
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px dashed ${props => props.theme.colors.border};
+  padding: ${props => props.theme.spacing.xs} 0;
+  
+  &:last-child {
+    border-bottom: none;
+  }
+`;
+
+const DetailLabel = styled.span`
+  font-weight: ${props => props.theme.typography.fontWeight.medium};
+  color: ${props => props.theme.colors.text.secondary};
+`;
+
+const DetailValue = styled.span`
+  font-weight: ${props => props.theme.typography.fontWeight.regular};
+  text-align: right;
+`;
+
+// Define styled components for responsive views
+const DesktopView = styled.div`
+  overflow-x: auto;
+  
+  @media (max-width: ${props => props.theme.breakpoints.sm}) {
+    display: none;
+  }
+`;
+
+const MobileView = styled.div`
+  display: none;
+  
+  @media (max-width: ${props => props.theme.breakpoints.sm}) {
+    display: block;
+  }
+`;
 
 const BonusReports = () => {
   const [userBonuses, setUserBonuses] = useState([]);
@@ -832,7 +924,9 @@ const BonusReports = () => {
             transform: 'translate(-50%, -50%)',
             zIndex: 1000,
             width: '400px',
-            maxWidth: '90%'
+            maxWidth: '90%',
+            maxHeight: '90vh',
+            overflowY: 'auto'
           }}
         >
           <h3>Confirm Payment</h3>
@@ -855,7 +949,7 @@ const BonusReports = () => {
             />
           </DatePickerContainer>
           
-          <ButtonGroup>
+          <ButtonGroup style={{ marginTop: '1rem', flexDirection: 'row' }}>
             <Button onClick={cancelPayment} style={{ backgroundColor: '#bdbdbd' }}>
               Cancel
             </Button>
@@ -1176,42 +1270,107 @@ const BonusReports = () => {
         {loading ? (
           <p>Loading report data...</p>
         ) : filteredBonuses.length > 0 ? (
-          <ReportTable>
-            <TableHead>
-              <tr>
-                <th>User</th>
-                <th>Email</th>
-                <th>Quarter</th>
-                <th>Parts Entered</th>
-                <th>Bonus Amount</th>
-                <th>Status</th>
-                <th>Payment Date</th>
-                <th>Actions</th>
-              </tr>
-            </TableHead>
-            <TableBody>
+          <>
+            {/* Desktop view - table */}
+            <DesktopView>
+              <ReportTable>
+                <TableHead>
+                  <tr>
+                    <th>User</th>
+                    <th>Email</th>
+                    <th>Quarter</th>
+                    <th>Parts</th>
+                    <th>Bonus</th>
+                    <th>Status</th>
+                    <th>Payment Date</th>
+                    <th>Actions</th>
+                  </tr>
+                </TableHead>
+                <TableBody>
+                  {reportData.map(item => (
+                    <tr key={item.id}>
+                      <td>{item.user || 'Unknown User'}</td>
+                      <td>{item.email || 'N/A'}</td>
+                      <td>{item.quarter || 'N/A'}</td>
+                      <td>{item.partsEntered || 0}</td>
+                      <td>{item.bonusAmount || '$0.00'}</td>
+                      <td>
+                        <StatusBadge status={item.status === 'paid' || item.status === 'Paid' ? 'Paid' : 'Pending'}>
+                          {item.status === 'paid' || item.status === 'Paid' ? (
+                            <><FiCheckCircle size={14} /> Paid</>
+                          ) : (
+                            <><FiClock size={14} /> Pending</>
+                          )}
+                        </StatusBadge>
+                      </td>
+                      <td>{item.paymentDate || '-'}</td>
+                      <td>
+                        <Button 
+                          style={{ 
+                            padding: '0.25rem 0.5rem',
+                            fontSize: '0.875rem',
+                            backgroundColor: item.status === 'paid' || item.status === 'Paid' ? '#bdbdbd' : '#4caf50'
+                          }}
+                          disabled={item.status === 'paid' || item.status === 'Paid'}
+                          onClick={() => handleMarkAsPaid(item)}
+                        >
+                          {item.status === 'paid' || item.status === 'Paid' ? 'Paid' : 'Mark as Paid'}
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </TableBody>
+              </ReportTable>
+            </DesktopView>
+            
+            {/* Mobile view - cards */}
+            <MobileView>
               {reportData.map(item => (
-                <tr key={item.id}>
-                  <td>{item.user || 'Unknown User'}</td>
-                  <td>{item.email || 'N/A'}</td>
-                  <td>{item.quarter || 'N/A'}</td>
-                  <td>{item.partsEntered || 0}</td>
-                  <td>{item.bonusAmount || '$0.00'}</td>
-                  <td>
-                    <StatusBadge status={item.status === 'paid' || item.status === 'Paid' ? 'Paid' : 'Pending'}>
-                      {item.status === 'paid' || item.status === 'Paid' ? (
-                        <><FiCheckCircle size={14} /> Paid</>
-                      ) : (
-                        <><FiClock size={14} /> Pending</>
-                      )}
-                    </StatusBadge>
-                  </td>
-                  <td>{item.paymentDate || '-'}</td>
-                  <td>
+                <MobileDetailCard key={item.id}>
+                  <h4>{item.user || 'Unknown User'}</h4>
+                  
+                  <DetailRow>
+                    <DetailLabel>Email:</DetailLabel>
+                    <DetailValue>{item.email || 'N/A'}</DetailValue>
+                  </DetailRow>
+                  
+                  <DetailRow>
+                    <DetailLabel>Quarter:</DetailLabel>
+                    <DetailValue>{item.quarter || 'N/A'}</DetailValue>
+                  </DetailRow>
+                  
+                  <DetailRow>
+                    <DetailLabel>Parts Entered:</DetailLabel>
+                    <DetailValue>{item.partsEntered || 0}</DetailValue>
+                  </DetailRow>
+                  
+                  <DetailRow>
+                    <DetailLabel>Bonus Amount:</DetailLabel>
+                    <DetailValue>{item.bonusAmount || '$0.00'}</DetailValue>
+                  </DetailRow>
+                  
+                  <DetailRow>
+                    <DetailLabel>Status:</DetailLabel>
+                    <DetailValue>
+                      <StatusBadge status={item.status === 'paid' || item.status === 'Paid' ? 'Paid' : 'Pending'}>
+                        {item.status === 'paid' || item.status === 'Paid' ? (
+                          <><FiCheckCircle size={14} /> Paid</>
+                        ) : (
+                          <><FiClock size={14} /> Pending</>
+                        )}
+                      </StatusBadge>
+                    </DetailValue>
+                  </DetailRow>
+                  
+                  <DetailRow>
+                    <DetailLabel>Payment Date:</DetailLabel>
+                    <DetailValue>{item.paymentDate || '-'}</DetailValue>
+                  </DetailRow>
+                  
+                  <div style={{ marginTop: '0.75rem', textAlign: 'center' }}>
                     <Button 
                       style={{ 
-                        padding: '0.25rem 0.5rem',
-                        fontSize: '0.875rem',
+                        width: '100%',
                         backgroundColor: item.status === 'paid' || item.status === 'Paid' ? '#bdbdbd' : '#4caf50'
                       }}
                       disabled={item.status === 'paid' || item.status === 'Paid'}
@@ -1219,11 +1378,11 @@ const BonusReports = () => {
                     >
                       {item.status === 'paid' || item.status === 'Paid' ? 'Paid' : 'Mark as Paid'}
                     </Button>
-                  </td>
-                </tr>
+                  </div>
+                </MobileDetailCard>
               ))}
-            </TableBody>
-          </ReportTable>
+            </MobileView>
+          </>
         ) : (
           <p>No bonus data available for the selected filters.</p>
         )}
