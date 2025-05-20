@@ -1,0 +1,101 @@
+{
+  "common": {
+    "loading": "Yuklanmoqda...",
+    "error": "Xato",
+    "success": "Muvaffaqiyatli",
+    "submit": "Yuborish",
+    "cancel": "Bekor qilish",
+    "save": "Saqlash",
+    "edit": "Tahrirlash",
+    "delete": "O'chirish",
+    "close": "Yopish",
+    "search": "Qidirish",
+    "filter": "Filtr",
+    "actions": "Harakatlar",
+    "status": "Holat",
+    "total": "Jami",
+    "date": "Sana",
+    "amount": "Miqdor",
+    "name": "Ism",
+    "email": "Elektron pochta",
+    "language": "Til",
+    "selectLanguage": "Tilni tanlang",
+    "noData": "Ma'lumot yo'q",
+    "download": "Yuklash",
+    "unknown": "Noma'lum",
+    "user": "Foydalanuvchi",
+    "refreshing": "Yangilanmoqda...",
+    "refreshData": "Ma'lumotlarni yangilash",
+    "initializing": "Ishga tushirilmoqda"
+  },
+  "navigation": {
+    "dashboard": "Boshqaruv paneli",
+    "users": "Foydalanuvchilar",
+    "parts": "Ehtiyot qismlar",
+    "bonusReports": "Bonus hisobotlari",
+    "settings": "Sozlamalar",
+    "logout": "Chiqish",
+    "login": "Kirish"
+  },
+  "auth": {
+    "login": "Kirish",
+    "phone": "Telefon raqami",
+    "password": "Parol",
+    "forgotPassword": "Parolni unutdingizmi?",
+    "loginSuccess": "Kirish muvaffaqiyatli",
+    "loginError": "Kirish xatosi"
+  },
+  "dashboard": {
+    "title": "Boshqaruv paneli",
+    "summary": "Umumiy ma'lumot",
+    "partsEntered": "Kiritilgan ehtiyot qismlar",
+    "activeUsers": "Faol foydalanuvchilar",
+    "totalBonuses": "Jami bonuslar",
+    "currentBonus": "Joriy bonus",
+    "paidBonus": "To'langan bonus",
+    "recentActivity": "So'nggi faoliyat",
+    "totalParts": "Jami ehtiyot qismlar",
+    "partsRemaining": "Qolgan ehtiyot qismlar",
+    "lastUpdated": "Oxirgi yangilangan",
+    "databaseReady": "Ma'lumotlar bazasi tayyor",
+    "databaseInitializingMessage": "Ma'lumotlar bazasi jadvallari sozlanmoqda... Bu biroz vaqt olishi mumkin.",
+    "databaseInitializedSuccessfully": "Ma'lumotlar bazasi jadvallari muvaffaqiyatli o'rnatildi.",
+    "fetchError": "Ma'lumotlarni yuklashda xatolik yuz berdi",
+    "usersOverview": "Foydalanuvchilar sharhi"
+  },
+  "bonusReports": {
+    "title": "Bonus hisobotlari",
+    "totalUsers": "Jami foydalanuvchilar",
+    "totalPartsEntered": "Jami kiritilgan ehtiyot qismlar",
+    "totalBonusAmount": "Umumiy bonus miqdori",
+    "quarterlyBonusTrends": "Choraklik bonus tendensiyalari",
+    "bonusDistributionByUser": "Foydalanuvchilar bo'yicha bonus taqsimoti",
+    "pendingVsPaidBonuses": "Kutilayotgan va to'langan bonuslar",
+    "bonusReportDetails": "Bonus hisoboti tafsilotlari",
+    "quarter": "Chorak",
+    "user": "Foydalanuvchi",
+    "partsEntered": "Kiritilgan ehtiyot qismlar",
+    "bonusAmount": "Bonus miqdori",
+    "paymentStatus": {
+      "paid": "To'langan",
+      "pending": "Kutilmoqda"
+    },
+    "paymentDate": "To'lov sanasi",
+    "markAsPaid": "To'langan deb belgilash",
+    "confirmPayment": "To'lovni tasdiqlash",
+    "exportToExcel": "Excel'ga eksport qilish",
+    "detailedReports": "Batafsil hisobotlar"
+  },
+  "enterPart": {
+    "title": "Ehtiyot qism kiritish",
+    "partSerialNumber": "Ehtiyot qism seriya raqami",
+    "serialNumberPlaceholder": "misol: 0 000 000 000 000",
+    "helper": "$1 bonus olish uchun ehtiyot qism seriya raqamini kiriting",
+    "successMessage": "{{partId}} ehtiyot qismi muvaffaqiyatli kiritildi! Bonusingizga $1.00 qo'shildi."
+  },
+  "languages": {
+    "en": "Ingliz",
+    "ru": "Rus",
+    "uz": "O'zbek"
+  }
+} 

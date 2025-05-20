@@ -1,0 +1,101 @@
+{
+  "common": {
+    "loading": "Загрузка...",
+    "error": "Ошибка",
+    "success": "Успешно",
+    "submit": "Отправить",
+    "cancel": "Отмена",
+    "save": "Сохранить",
+    "edit": "Редактировать",
+    "delete": "Удалить",
+    "close": "Закрыть",
+    "search": "Поиск",
+    "filter": "Фильтр",
+    "actions": "Действия",
+    "status": "Статус",
+    "total": "Всего",
+    "date": "Дата",
+    "amount": "Сумма",
+    "name": "Имя",
+    "email": "Эл. почта",
+    "language": "Язык",
+    "selectLanguage": "Выбрать язык",
+    "noData": "Нет данных",
+    "download": "Скачать",
+    "unknown": "Неизвестно",
+    "user": "Пользователь",
+    "refreshing": "Обновление...",
+    "refreshData": "Обновить данные",
+    "initializing": "Инициализация"
+  },
+  "navigation": {
+    "dashboard": "Панель управления",
+    "users": "Пользователи",
+    "parts": "Запчасти",
+    "bonusReports": "Отчеты по бонусам",
+    "settings": "Настройки",
+    "logout": "Выйти",
+    "login": "Войти"
+  },
+  "auth": {
+    "login": "Войти",
+    "phone": "Номер телефона",
+    "password": "Пароль",
+    "forgotPassword": "Забыли пароль?",
+    "loginSuccess": "Вход выполнен успешно",
+    "loginError": "Ошибка входа"
+  },
+  "dashboard": {
+    "title": "Панель управления",
+    "summary": "Сводка",
+    "partsEntered": "Введенные запчасти",
+    "activeUsers": "Активные пользователи",
+    "totalBonuses": "Всего бонусов",
+    "currentBonus": "Текущий бонус",
+    "paidBonus": "Выплаченный бонус",
+    "recentActivity": "Последние действия",
+    "totalParts": "Всего запчастей",
+    "partsRemaining": "Осталось запчастей",
+    "lastUpdated": "Последнее обновление",
+    "databaseReady": "База данных готова",
+    "databaseInitializingMessage": "Настройка таблиц базы данных... Это может занять некоторое время.",
+    "databaseInitializedSuccessfully": "Таблицы базы данных были успешно инициализированы.",
+    "fetchError": "Не удалось загрузить данные",
+    "usersOverview": "Обзор пользователей"
+  },
+  "bonusReports": {
+    "title": "Отчеты по бонусам",
+    "totalUsers": "Всего пользователей",
+    "totalPartsEntered": "Всего введенных запчастей",
+    "totalBonusAmount": "Общая сумма бонусов",
+    "quarterlyBonusTrends": "Квартальные тренды бонусов",
+    "bonusDistributionByUser": "Распределение бонусов по пользователям",
+    "pendingVsPaidBonuses": "Ожидающие vs Выплаченные бонусы",
+    "bonusReportDetails": "Детали отчета по бонусам",
+    "quarter": "Квартал",
+    "user": "Пользователь",
+    "partsEntered": "Введенные запчасти",
+    "bonusAmount": "Сумма бонуса",
+    "paymentStatus": {
+      "paid": "Оплачено",
+      "pending": "В ожидании"
+    },
+    "paymentDate": "Дата оплаты",
+    "markAsPaid": "Отметить как оплаченный",
+    "confirmPayment": "Подтвердить оплату",
+    "exportToExcel": "Экспорт в Excel",
+    "detailedReports": "Подробные отчеты"
+  },
+  "enterPart": {
+    "title": "Ввести запчасть",
+    "partSerialNumber": "Серийный номер запчасти",
+    "serialNumberPlaceholder": "например: 0 000 000 000 000",
+    "helper": "Введите серийный номер запчасти, чтобы получить бонус $1",
+    "successMessage": "Запчасть {{partId}} успешно введена! $1.00 добавлено к вашему бонусу."
+  },
+  "languages": {
+    "en": "Английский",
+    "ru": "Русский",
+    "uz": "Узбекский"
+  }
+} 

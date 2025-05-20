@@ -1,0 +1,46 @@
+{
+  "name": "europe-gas",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "stable-dev": "node dev-server.js",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "clear-deps": "rimraf node_modules/.vite"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.4",
+    "chart.js": "^4.4.9",
+    "framer-motion": "^12.10.4",
+    "i18next": "^25.1.2",
+    "i18next-browser-languagedetector": "^8.1.0",
+    "i18next-http-backend": "^3.0.2",
+    "papaparse": "^5.5.2",
+    "react": "^19.1.0",
+    "react-chartjs-2": "^5.3.0",
+    "react-dom": "^19.1.0",
+    "react-hot-toast": "^2.5.2",
+    "react-i18next": "^15.5.1",
+    "react-icons": "^5.5.0",
+    "react-qr-barcode-scanner": "^2.1.4",
+    "react-router-dom": "^7.6.0",
+    "recharts": "^2.15.3",
+    "styled-components": "^6.1.18",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.25.0",
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
+    "@vitejs/plugin-react": "^4.4.1",
+    "eslint": "^9.25.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.19",
+    "globals": "^16.0.0",
+    "rimraf": "^5.0.10",
+    "vite": "^6.3.5"
+  }
+}
